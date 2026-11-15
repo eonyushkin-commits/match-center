@@ -36,7 +36,7 @@ export function rowHtml({ key, m, lg, showLeague }, view) {
     const flags = t.players.filter((p) => p.flag).map((p) => `<img loading="lazy" src="${esc(p.flag)}" alt="">`).join('');
     // ★ — у игрока одиночного разряда: пара в избранном, если в нём хотя бы один из двоих
     const star = t.id != null ? `<button type="button" class="star${fav ? ' on' : ''}" data-fav="${t.id}" data-name="${esc(t.name)}" aria-pressed="${fav}"
-        title="${fav ? 'Убрать из избранного' : 'В избранное — напомню за 15 минут и в начале каждого матча игрока'}">★</button>` : '';
+        title="${fav ? 'Убрать из избранного' : 'В избранное — уведомлю о начале каждого матча игрока'}">★</button>` : '';
     return `<div class="team${!hidden && m.finished && t.winner ? ' win' : ''}">
       <span class="flags">${flags}</span>
       ${seeded ? `<small class="seed"${t.seed ? ' title="Номер посева"' : ''}>${esc(t.seed)}</small>` : ''}<span class="name">${esc(t.name)}</span>${!hidden && t.serving ? '<span class="serve" title="Подаёт"></span>' : ''}
@@ -57,7 +57,7 @@ export function rowHtml({ key, m, lg, showLeague }, view) {
   }
   const bell = !m.started && !m.cancelled && m.timeKnown
     ? `<button type="button" class="bell${m.remind ? ' on' : ''}" data-remind aria-pressed="${!!m.remind}"
-        title="${m.remind ? 'Не напоминать' : 'Напомнить за 15 минут и в начале матча'}">🔔</button>` : '';
+        title="${m.remind ? 'Не напоминать' : 'Уведомить о начале матча'}">🔔</button>` : '';
   const meta = [m.round, m.court].filter(Boolean).map(esc).join(' · ');
   // турнир, а под ним раунд и корт — отдельными строками над игроками: справа от счёта они
   // сдвигали бы счёт у каждого матча по-своему

@@ -132,7 +132,7 @@ function toggleFavorite(id, name) {
   saveNow({ favorites: state.settings.favorites });
 }
 
-// 🔔 у матча: напомнить за 15 минут и в начале, даже если игроки не в избранном
+// 🔔 у матча: уведомить, когда матч начнётся, даже если игроки не в избранном
 function toggleRemind(m) {
   const list = state.settings.favoriteMatches;
   state.settings.favoriteMatches = list.some((f) => f.id === m.id)
