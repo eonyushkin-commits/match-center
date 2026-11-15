@@ -23,7 +23,7 @@ export function openSettingsDialog(dlg, { settings: s, save }) {
         <label class="row">Перечитывать каналы VK каждые <select class="field" id="refresh">${refreshOptions.map((v) =>
           `<option value="${v}" ${v === s.refreshSeconds ? 'selected' : ''}>${v < 60 ? `${v} с` : `${+(v / 60).toFixed(1)} мин`}</option>`).join('')}</select></label>
         <label class="row"><input type="checkbox" class="switch" id="notify" ${s.notifications ? 'checked' : ''}> Уведомлять о матчах избранных игроков</label>
-        <p class="hint">За 15 минут до начала по расписанию и когда матч начался — для избранных игроков (★) и отмеченных матчей (🔔).
+        <p class="hint">Когда матч фактически начался — для избранных игроков (★) и отмеченных матчей (🔔).
           Игроки: ${s.favorites.length ? s.favorites.map((f) => esc(f.name)).join(', ') : 'пока нет'}.
           Матчи: ${s.favoriteMatches.length ? s.favoriteMatches.map((f) => esc(f.name)).join(', ') : 'пока нет'}.</p>
         <label class="row"><input type="checkbox" class="switch" id="tray" ${s.tray ? 'checked' : ''}> Сворачивать в трей при закрытии окна</label>

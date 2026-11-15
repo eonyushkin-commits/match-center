@@ -32,7 +32,7 @@ export async function createMatchCenter({ dataDir, fetchImpl = fetch, espnFetch 
   return {
     settings,
     url,
-    // уведомления о матчах избранных: { kind: soon | kickoff, date, match }
+    // уведомления о матчах избранных: { kind: 'kickoff', date, match } — только при фактическом начале
     onNotify: (fn) => listeners.add(fn),
     // состояние источников для диагностического отчёта (см. diagnostics.mjs)
     diagnostics: () => coreDiagnostics({ settings, poller, espn }),
