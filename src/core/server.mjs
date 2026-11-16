@@ -1,7 +1,7 @@
 // Локальный сервер: страница матч-центра и её API.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { defaults } from './settings.mjs';
+import { sportById } from '../sports/index.mjs';
 
 const WEB = new URL('../web/', import.meta.url);
 // Отдаём только перечисленные файлы страницы
@@ -60,7 +60,14 @@ function validTimeZone(tz) {
 
 export function createHandler({ settings, poller, source, feed, imageHosts = [] }) {
   const CSP = csp(imageHosts);
-  const withLeagues = (s) => ({ ...s, knownLeagues: defaults.knownLeagues });
+  // Настройки отдаются и правятся по видам спорта: ?sport=<вид>, без него — вид, открытый в окне.
+  // Общие поля (тема, трей, уведомления…) одни на все виды, с каким бы видом их ни прислали.
+  const sportOf = (u) => {
+    const id = u.searchParams.get('sport') ?? settings.get().ui.sport;
+    if (!sportById(id)) throw new HttpError(400, `sport: неизвестный вид спорта «${id}»`);
+    return id;
+  };
+  const withLeagues = (s, id) => ({ ...s, knownLeagues: sportById(id).defaults.knownLeagues });
 
   // Лента (Server-Sent Events): расписание дня date и состояние каналов — сразу и при каждом изменении. Подписка живёт, пока открыто соединение.
   function events(u, res) {
@@ -73,8 +80,14 @@ export function createHandler({ settings, poller, source, feed, imageHosts = [] 
   }
 
   const routes = {
-    'GET /api/settings': () => withLeagues(settings.get()),
-    'PUT /api/settings': async (u, req) => withLeagues(await settings.update(await readJson(req))),
+    'GET /api/settings': (u) => {
+      const id = sportOf(u);
+      return withLeagues(settings.get(id), id);
+    },
+    'PUT /api/settings': async (u, req) => {
+      const id = sportOf(u);
+      return withLeagues(await settings.update(await readJson(req), id), id);
+    },
     'POST /api/refresh': () => {
       // по кнопке: расписание и каналы перечитываются сразу (каналы — без пауз запасного чтения);
       // когда каналы прочитаны, лента присылает странице новое расписание

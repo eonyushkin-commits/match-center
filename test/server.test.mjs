@@ -66,6 +66,18 @@ test('/api/settings: вместе с настройками — список р�
   assert.equal((await fetch(`${base}/api/leagues`)).status, 404);
 });
 
+test('/api/settings?sport=…: настройки вида спорта; неизвестный вид — 400', async () => {
+  const s = await (await fetch(`${base}/api/settings?sport=tennis`)).json();
+  assert.deepEqual([s.ui.sport, s.knownLeagues.length], ['tennis', 4]);
+  assert.equal((await fetch(`${base}/api/settings?sport=curling`)).status, 400);
+  const put = (query, body) => fetch(`${base}/api/settings${query}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  assert.equal((await put('?sport=curling', { tray: false })).status, 400);
+  assert.equal((await put('', { ui: { sport: 'curling' } })).status, 400);
+  const ok = await put('?sport=tennis', { ui: { hideScores: true } });
+  assert.deepEqual([ok.status, (await ok.json()).ui.hideScores], [200, true]);
+  await put('?sport=tennis', { ui: { hideScores: false } });
+});
+
 test('/api/events: неверные параметры — 400, а не падение', async () => {
   assert.equal((await fetch(`${base}/api/events?date=2026-09-20`)).status, 400);
   assert.equal((await fetch(`${base}/api/events?date=20260920&tz=Mars/Olympus`)).status, 400);

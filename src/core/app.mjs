@@ -15,8 +15,8 @@ export async function createMatchCenter({ dataDir, fetchImpl = fetch, nodeFetch 
   const settings = await openSettings(dataDir);
   const readers = [createVkApi(fetchImpl), pageReader].filter(Boolean);
   const poller = createStreamPoller({
-    channels: () => settings.get().channels.filter((c) => c.enabled),
-    intervalMs: () => settings.get().refreshSeconds * 1000,
+    channels: () => settings.get(sport.id).channels.filter((c) => c.enabled),
+    intervalMs: () => settings.get(sport.id).refreshSeconds * 1000,
     readers,
     parseTitle: sport.parseTitle,
   });

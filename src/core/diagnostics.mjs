@@ -42,7 +42,7 @@ const short = (e) => {
 // private — имена и подписи своих каналов пользователя: buildReport заменит их везде,
 // в том числе в текстах ошибок, на «свой канал N».
 export function coreDiagnostics({ settings, poller, sport, source, now = Date.now() }) {
-  const s = settings.get();
+  const s = settings.get(sport.id);
   const own = s.channels.filter((c) => !c.builtIn);
   return {
     now,

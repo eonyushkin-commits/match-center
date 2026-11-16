@@ -16,7 +16,7 @@ test('описание вида спорта: у каждого вида ест�
     for (const key of ['channels', 'leagues', 'knownLeagues']) assert.ok(Array.isArray(sport.defaults[key]), `${sport.id}: defaults.${key}`);
     assert.equal(typeof sport.defaults.teamAliases, 'object');
     assert.ok(sport.imageHosts.every((h) => /^https:\/\/[\w.-]+$/.test(h)), `${sport.id}: imageHosts — только https-адреса без пути`);
-    assert.deepEqual(Object.keys(sport.texts).sort(), ['favorites', 'leagues']);
+    for (const key of ['leagues', 'favorites', 'pickLeague', 'aliases']) assert.equal(typeof sport.texts[key], 'string', `${sport.id}: texts.${key}`);
   }
 });
 

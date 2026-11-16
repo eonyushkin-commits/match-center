@@ -15,8 +15,13 @@ export default {
   defaults,
   // откуда страница может брать картинки: флаги игроков
   imageHosts: ['https://a.espncdn.com'],
-  // слова для диагностического отчёта
-  texts: { leagues: 'разрядов', favorites: 'избранных игроков' },
+  // слова вида спорта: счётчики диагностического отчёта и ошибки настроек
+  texts: {
+    leagues: 'разрядов',
+    favorites: 'избранных игроков',
+    pickLeague: 'Выберите хотя бы один разряд',
+    aliases: 'Написания игроков',
+  },
 
   // Запросы Chromium со стандартным User-Agent Electron ESPN отклоняет (403), а встроенный
   // fetch Node.js принимает — поэтому nodeFetch, а не fetchImpl

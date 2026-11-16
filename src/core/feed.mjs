@@ -30,7 +30,7 @@ export function createFeed({ settings, poller, sport, source, version, dayMs = 6
     const day = async () => {
       status();
       try {
-        const s = settings.get();
+        const s = settings.get(sport.id);
         const data = await source.day(date, sport.dayQuery(s, tz));
         push('day', 'day', sport.buildDay({ data, date, tz, settings: s, snapshot: poller.snapshot() }));
         return true;
@@ -48,8 +48,18 @@ export function createFeed({ settings, poller, sport, source, version, dayMs = 6
     loop();
     // прочитаны каналы или сохранены настройки — расписание сразу, не дожидаясь круга.
     // Размер окна, тема и фильтры на расписание не влияют: ради них источник не спрашиваем.
-    const dayKey = (s) => JSON.stringify([s.leagues, s.favorites, s.favoriteMatches, s.teamAliases]);
-    const changed = (s, prev) => (s && prev && dayKey(s) === dayKey(prev) ? status() : day());
+    // Правка настроек другого вида спорта сюда тоже приходит — и тоже ничего не меняет.
+    const dayKey = () => {
+      const s = settings.get(sport.id);
+      return JSON.stringify([s.leagues, s.favorites, s.favoriteMatches, s.teamAliases]);
+    };
+    let key = dayKey();
+    const changed = () => {
+      const next = dayKey();
+      const same = next === key;
+      key = next;
+      return same ? status() : day();
+    };
     poller.on('update', day);
     settings.on('change', changed);
 

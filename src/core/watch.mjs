@@ -19,7 +19,7 @@ export function watchFavorites({ poller, settings, sport, source, onEvent, now =
 
   // возвращает время ближайшего момента, к которому нужна следующая проверка
   async function check() {
-    const s = settings.get();
+    const s = settings.get(sport.id);
     let next = Infinity;
     if (!s.notifications || (!s.favorites.length && !s.favoriteMatches.length)) return next;
     const t = now();
@@ -71,9 +71,16 @@ export function watchFavorites({ poller, settings, sport, source, onEvent, now =
   poller.once('update', run);
   schedule(now() + 30e3);
   // отметили матч или игрока — проверяем сразу: матч может уже идти или вот-вот начаться
-  const wanted = (s) => JSON.stringify([s.notifications, s.favorites, s.favoriteMatches]);
-  settings.on('change', (s, prev) => {
-    if (wanted(s) !== wanted(prev)) (checking || Promise.resolve()).then(run);
+  const wanted = () => {
+    const s = settings.get(sport.id);
+    return JSON.stringify([s.notifications, s.favorites, s.favoriteMatches]);
+  };
+  let want = wanted();
+  settings.on('change', () => {
+    const next = wanted();
+    if (next === want) return;
+    want = next;
+    (checking || Promise.resolve()).then(run);
   });
 
   return {
