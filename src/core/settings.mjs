@@ -7,6 +7,7 @@
 //   { version: 2, tray, ui: { … }, sports: { <вид>: { channels, leagues, favorites, … } } }
 // Номера игроков, команд и матчей у разных источников пересекаются, поэтому общего
 // избранного нет. Файл версии 1 (без version, всё в корне) переносится при открытии.
+// Настройки вида спорта из прежнего отдельного приложения забираются один раз (importFrom).
 // Остальному приложению настройки отдаются «плоскими» — общие вместе с разделом одного вида.
 import { EventEmitter } from 'node:events';
 import { copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
@@ -211,19 +212,28 @@ export function applyPatch(user, patch, sport = defaultSport) {
 export function migrate(file, v1Sport = defaultSport.id) {
   if (file.version >= VERSION) return { ...file, sports: isObject(file.sports) ? file.sports : {} };
   const section = pick(file, SPORT_KEYS);
+  const common = pick(file, COMMON_KEYS);
+  // у кого было приложение одного вида спорта, тому первым открывается этот вид
+  if (Object.keys(file).length && sportById(v1Sport)) {
+    const ui = isObject(common.ui) ? common.ui : {};
+    common.ui = { ...ui, sport: ui.sport ?? v1Sport };
+  }
   return {
     version: VERSION,
-    ...pick(file, COMMON_KEYS),
+    ...common,
     sports: Object.keys(section).length ? { [v1Sport]: section } : {},
   };
 }
 
-// v1Sport — к какому виду спорта относится найденный файл версии 1
-export async function openSettings(dir, { v1Sport = defaultSport.id } = {}) {
+// v1Sport — к какому виду спорта относится найденный файл версии 1.
+// importFrom — { вид: путь к settings.json прежнего отдельного приложения этого вида }: его
+// каналы, турниры, написания и избранное забираются один раз (см. importOnce).
+export async function openSettings(dir, { v1Sport = defaultSport.id, importFrom = {} } = {}) {
   await mkdir(dir, { recursive: true });
   const file = path.join(dir, 'settings.json');
   const warnings = [];
   let data; // файл версии 2
+  let fresh = false; // своего файла настроек ещё не было
   let queue = Promise.resolve();
 
   async function write(next) {
@@ -245,6 +255,7 @@ export async function openSettings(dir, { v1Sport = defaultSport.id } = {}) {
   } catch (e) {
     data = { version: VERSION, sports: {} };
     if (e.code === 'ENOENT') {
+      fresh = true;
       await write(data);
     } else {
       const backup = file.replace(/\.json$/, `.broken-${Date.now()}.json`);
@@ -252,6 +263,33 @@ export async function openSettings(dir, { v1Sport = defaultSport.id } = {}) {
       warnings.push(`Файл настроек повреждён (${e.message}), используются настройки по умолчанию. Копия: ${backup}`);
     }
   }
+
+  // Настройки вида спорта из прежнего отдельного приложения. Забираются один раз: вид
+  // запоминается в imported, и то, что пользователь потом удалил, обратно не вернётся.
+  // Раздел, который здесь уже заполнен, не заменяется. Общие настройки (тема, трей, окно…)
+  // берутся оттуда, только если своего файла не было: иначе они уже есть.
+  async function importOnce() {
+    let changed = false;
+    for (const [id, source] of Object.entries(importFrom)) {
+      if (data.imported?.includes(id)) continue;
+      let other;
+      try {
+        other = JSON.parse(await readFile(source, 'utf8'));
+      } catch {
+        continue; // прежнего приложения нет или его файл не читается — забирать нечего
+      }
+      if (!isObject(other)) continue;
+      const from = migrate(other, id);
+      const next = { ...data, imported: [...(data.imported || []), id] };
+      const has = (section) => isObject(section) && Object.keys(section).length > 0;
+      if (has(from.sports[id]) && !has(data.sports[id])) next.sports = { ...data.sports, [id]: from.sports[id] };
+      if (fresh) for (const key of COMMON_KEYS) if (next[key] === undefined && from[key] !== undefined) next[key] = from[key];
+      data = next;
+      changed = true;
+    }
+    if (changed) await write(data);
+  }
+  await importOnce().catch((e) => warnings.push(`Не удалось перенести настройки прежнего приложения: ${e.message}`));
 
   const sportOf = (id) => {
     const sport = sportById(id);
@@ -282,7 +320,7 @@ export async function openSettings(dir, { v1Sport = defaultSport.id } = {}) {
         const section = pick(user, SPORT_KEYS);
         const sportsNext = { ...data.sports, [sport.id]: section };
         if (!Object.keys(section).length) delete sportsNext[sport.id];
-        const next = { version: VERSION, ...pick(user, COMMON_KEYS), sports: sportsNext };
+        const next = { version: VERSION, ...pick(user, COMMON_KEYS), ...(data.imported ? { imported: data.imported } : {}), sports: sportsNext };
         await write(next);
         const prev = get();
         data = next;

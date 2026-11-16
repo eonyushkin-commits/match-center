@@ -12,8 +12,9 @@ import { sports as allSports } from '../sports/index.mjs';
 // fetchImpl — сетевой стек приложения (в Electron — Chromium: системный прокси и сертификаты как
 // в браузере), им читается VK; nodeFetch — встроенный fetch Node.js для источников, которые
 // запросы Chromium отклоняют. Каким из них пользоваться, решает вид спорта (createSource).
-export async function createMatchCenter({ dataDir, fetchImpl = fetch, nodeFetch = fetch, pageReader = null, version, sports = allSports }) {
-  const settings = await openSettings(dataDir);
+// settingsFrom — откуда взять прежние настройки: { v1Sport, importFrom } (см. openSettings).
+export async function createMatchCenter({ dataDir, fetchImpl = fetch, nodeFetch = fetch, pageReader = null, version, sports = allSports, settingsFrom = {} }) {
+  const settings = await openSettings(dataDir, settingsFrom);
   // способы чтения каналов — общие для всех видов спорта: один токен VK, одно скрытое окно
   const readers = [createVkApi(fetchImpl), pageReader].filter(Boolean);
   const listeners = new Set();
@@ -54,6 +55,8 @@ export async function createMatchCenter({ dataDir, fetchImpl = fetch, nodeFetch 
   return {
     settings,
     url,
+    // виды спорта по порядку вкладок: [{ id, label }]
+    sports: sports.map(({ id, label }) => ({ id, label })),
     // уведомления о матчах избранных: { kind: 'kickoff', sport, date, match } — только при фактическом начале
     onNotify: (fn) => listeners.add(fn),
     // состояние источников для диагностического отчёта (см. diagnostics.mjs)

@@ -1,8 +1,8 @@
 {
-  "name": "match-center-tennis",
-  "productName": "Матч-центр Теннис",
-  "version": "1.0.9",
-  "description": "Матч-центр по теннису: расписание и счёт ATP и WTA из ESPN, трансляции из VK Видео",
+  "name": "match-center",
+  "productName": "Матч-центр",
+  "version": "3.0.0",
+  "description": "Матч-центр: расписание и счёт тенниса (ESPN) и футбола (FotMob), трансляции из VK Видео",
   "main": "src/electron/main.cjs",
   "type": "commonjs",
   "private": true,
@@ -24,8 +24,8 @@
     "linkedom": "^0.18.13"
   },
   "build": {
-    "appId": "ru.sportcenter.tenniscenter",
-    "productName": "Матч-центр Теннис",
+    "appId": "ru.sportcenter.matchcenter",
+    "productName": "Матч-центр",
     "files": [
       "src/**",
       "package.json"
@@ -47,14 +47,14 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "tennis-center-${version}-setup.${ext}",
-      "shortcutName": "Матч-центр Теннис"
+      "artifactName": "match-center-${version}-setup.${ext}",
+      "shortcutName": "Матч-центр"
     },
     "publish": [
       {
         "provider": "github",
         "owner": "eonyushkin-commits",
-        "repo": "match-center-tennis"
+        "repo": "match-center"
       }
     ]
   },

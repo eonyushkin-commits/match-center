@@ -87,19 +87,95 @@ test('файл версии 1 другого вида спорта уходит 
   const s = settings.get('tennis');
   assert.deepEqual([s.favorites, s.leagues, s.tray], [[], [1, 2], false], 'теннис — по умолчанию, общие настройки перенесены');
   assert.ok(s.channels.every((c) => c.builtIn && c.enabled));
+  // у кого было футбольное приложение, тому первым открывается футбол — с его настройками
+  const f = settings.get();
+  assert.deepEqual([f.ui.sport, f.leagues, f.favorites, f.channels.find((c) => c.screenName === 'pl_forever').enabled], ['football', [47, 48], football.favorites, false]);
 
-  await settings.update({ favorites: [{ id: 9820, name: 'Mirra Andreeva' }] });
+  await settings.update({ favorites: [{ id: 9820, name: 'Mirra Andreeva' }] }, 'tennis');
   const saved = await onDisk(dir);
   const { tray, ...section } = football;
-  assert.deepEqual(saved.sports, { football: section, tennis: { favorites: [{ id: 9820, name: 'Mirra Andreeva' }] } }, 'раздел неизвестного приложению вида сохраняется как есть');
-  assert.equal(saved.tray, false);
+  assert.deepEqual(saved.sports, { football: section, tennis: { favorites: [{ id: 9820, name: 'Mirra Andreeva' }] } });
+  assert.deepEqual([saved.tray, saved.ui], [false, { sport: 'football' }]);
+});
+
+test('раздел вида спорта, которого приложение не знает, сохраняется в файле как есть', async () => {
+  const dir = await tmp();
+  const curling = { leagues: [7], favorites: [{ id: 1, name: 'x' }] };
+  await writeFile(path.join(dir, 'settings.json'), JSON.stringify({ ...curling, tray: false }));
+  const settings = await openSettings(dir, { v1Sport: 'curling' });
+  assert.equal(settings.get().ui.sport, 'tennis', 'неизвестный вид первым не открывается');
+  await settings.update({ leagues: [3] });
+  assert.deepEqual((await onDisk(dir)).sports, { curling, tennis: { leagues: [3] } });
+});
+
+// ---------- настройки из прежнего отдельного приложения ----------
+
+const TENNIS_V1 = { favorites: [{ id: 9820, name: 'Mirra Andreeva' }], leagues: [2, 4], tray: false, ui: { theme: 'dark', window: { x: 1, y: 2, width: 900, height: 700, maximized: false } } };
+async function legacy(body) {
+  const file = path.join(await tmp(), 'settings.json');
+  await writeFile(file, typeof body === 'string' ? body : JSON.stringify(body));
+  return file;
+}
+
+test('перенос из прежнего приложения: у футбольной установки появляется раздел тенниса, общие настройки остаются свои', async () => {
+  const dir = await tmp();
+  await writeFile(path.join(dir, 'settings.json'), JSON.stringify({ leagues: [47], favorites: [{ id: 8456, name: 'Манчестер Сити' }], ui: { theme: 'light' } }));
+  const importFrom = { tennis: await legacy(TENNIS_V1) };
+  const settings = await openSettings(dir, { v1Sport: 'football', importFrom });
+
+  const t = settings.get('tennis');
+  assert.deepEqual([t.favorites, t.leagues], [TENNIS_V1.favorites, [2, 4]]);
+  assert.deepEqual([t.tray, t.ui.theme, t.ui.window, t.ui.sport], [true, 'light', null, 'football'], 'трей, тема и окно — как были в футбольном приложении');
+  assert.deepEqual(settings.get('football').favorites, [{ id: 8456, name: 'Манчестер Сити' }]);
+  const saved = await onDisk(dir);
+  assert.deepEqual(saved.imported, ['tennis']);
+  assert.deepEqual(JSON.parse(await readFile(importFrom.tennis, 'utf8')), TENNIS_V1, 'файл прежнего приложения не тронут');
+
+  // забирается один раз: удалённое избранное не возвращается; отметка переживает правки
+  await settings.update({ favorites: [] }, 'tennis');
+  const again = await openSettings(dir, { v1Sport: 'football', importFrom });
+  assert.deepEqual(again.get('tennis').favorites, []);
+  assert.deepEqual((await onDisk(dir)).imported, ['tennis']);
+});
+
+test('перенос из прежнего приложения: своего файла не было — берутся и общие настройки, открывается перенесённый вид', async () => {
+  const dir = await tmp();
+  const settings = await openSettings(dir, { v1Sport: 'football', importFrom: { tennis: await legacy(TENNIS_V1) } });
+  const s = settings.get();
+  assert.deepEqual([s.ui.sport, s.tray, s.ui.theme, s.ui.window?.width, s.favorites], ['tennis', false, 'dark', 900, TENNIS_V1.favorites]);
+  assert.deepEqual((await readdir(dir)).sort(), ['settings.json'], 'копия версии 1 не нужна: переносили не свой файл');
+});
+
+test('перенос из прежнего приложения: файл уже версии 2 — берётся раздел вида; заполненный раздел не заменяется', async () => {
+  const v2 = { version: 2, tray: false, sports: { tennis: { leagues: [3] }, football: { leagues: [99] } } };
+  const a = await tmp();
+  const fromV2 = await openSettings(a, { importFrom: { tennis: await legacy(v2) } });
+  assert.deepEqual([fromV2.get('tennis').leagues, fromV2.get('football').leagues], [[3], [47, 48, 132, 133, 247]], 'чужой раздел из того файла не берём');
+
+  const b = await tmp();
+  await writeFile(path.join(b, 'settings.json'), JSON.stringify({ version: 2, sports: { tennis: { leagues: [4] } } }));
+  const kept = await openSettings(b, { importFrom: { tennis: await legacy(TENNIS_V1) } });
+  assert.deepEqual([kept.get('tennis').leagues, kept.get('tennis').favorites], [[4], []]);
+  assert.deepEqual((await onDisk(b)).imported, ['tennis'], 'но попытка запомнена — второй раз не переносим');
+});
+
+test('перенос из прежнего приложения: файла нет или он повреждён — запуск как обычно, без отметки', async () => {
+  for (const source of [path.join(await tmp(), 'нет', 'settings.json'), await legacy('{ "leagues": [2, }'), await legacy('[1, 2]')]) {
+    const dir = await tmp();
+    const settings = await openSettings(dir, { importFrom: { tennis: source } });
+    assert.deepEqual([settings.get().leagues, settings.warnings], [[1, 2], []]);
+    assert.deepEqual(await onDisk(dir), { version: VERSION, sports: {} });
+  }
 });
 
 test('migrate: файл версии 2 не меняется; файл без раздела sports получает пустой', () => {
   const v2 = { version: 2, tray: false, sports: { tennis: { leagues: [3] }, football: { leagues: [47] } } };
   assert.deepEqual(migrate(v2), v2);
   assert.deepEqual(migrate({ version: 2, sports: 'сломано' }).sports, {});
-  assert.deepEqual(migrate({ tray: false, ui: { theme: 'dark' } }), { version: 2, tray: false, ui: { theme: 'dark' }, sports: {} });
+  assert.deepEqual(migrate({ tray: false, ui: { theme: 'dark' } }), { version: 2, tray: false, ui: { theme: 'dark', sport: 'tennis' }, sports: {} });
+  assert.deepEqual(migrate({ leagues: [47] }, 'football'), { version: 2, ui: { sport: 'football' }, sports: { football: { leagues: [47] } } }, 'первым откроется вид прежнего приложения');
+  assert.deepEqual(migrate({ ui: { sport: 'tennis' }, leagues: [47] }, 'football').ui, { sport: 'tennis' }, 'уже выбранный вид не меняется');
+  assert.deepEqual(migrate({}, 'football'), { version: 2, sports: {} });
 });
 
 test('правка вида спорта: общие поля — в корень файла, остальное — в раздел вида; неизвестный вид — ошибка 400', async () => {

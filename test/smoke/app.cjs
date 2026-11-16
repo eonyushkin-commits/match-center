@@ -21,7 +21,7 @@ globalThis.fetch = fake; // ESPN приложение спрашивает вс�
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 // подсказку про трей не показываем — это настоящее уведомление Windows
 fs.mkdirSync(app.getPath('userData'), { recursive: true });
-fs.writeFileSync(path.join(app.getPath('userData'), 'settings.json'), JSON.stringify({ ui: { trayHintShown: true } }));
+fs.writeFileSync(path.join(app.getPath('userData'), 'settings.json'), JSON.stringify({ version: 2, ui: { trayHintShown: true }, sports: {} }));
 require('../../src/electron/main.cjs');
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -228,7 +228,7 @@ app.whenReady().then(async () => {
       await click('#status-pop [data-action="diagnostics"]');
       await until('кнопка подтвердила копирование', () => page(`document.querySelector('#status-pop [data-action="diagnostics"]')?.textContent === 'Отчёт скопирован'`));
       const report = await clipboard.readText();
-      assert.match(report, /^Матч-центр Теннис — диагностический отчёт/);
+      assert.match(report, /^Матч-центр — диагностический отчёт/);
       assert.match(report, new RegExp(`Версия: ${app.getVersion().replaceAll('.', '\\.')} \\(запуск из исходников\\)`));
       assert.match(report, /ESPN:\n {2}atp: последний успех \d{4}-/);
       assert.match(report, /ok {3}tennisprimesport: через api/);
@@ -249,6 +249,18 @@ app.whenReady().then(async () => {
     win.webContents.send('open-match', { date: ymdIn(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone), id: 101 });
     await until('окно из уведомления', () => players().length === 2);
     assert.equal(win.isVisible(), true);
+  });
+
+  await step('клик по уведомлению о матче другого вида спорта: окно переключается на него и открывает эфир', async () => {
+    const { ymdIn } = await import('../../src/core/dates.mjs');
+    assert.match(win.getTitle(), /^Матч-центр \| Теннис · v\d/);
+    win.webContents.send('open-match', { sport: 'football', date: ymdIn(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone), id: 201 });
+    await until('окно эфира футбольного матча', () => players().some((w) => /oid=-5&id=1&/.test(w.webContents.getURL())));
+    assert.equal(await page(`document.querySelector('#sports .on').textContent`), 'Футбол');
+    assert.ok(await page(`!!document.querySelector('[data-key="m:201"]')`));
+    assert.match(win.getTitle(), /^Матч-центр \| Футбол · v\d/, 'в заголовке окна — открытый вид спорта и версия');
+    await click('#sports [data-sport="tennis"]');
+    await on(`!!document.querySelector('[data-key="m:101"]')`, 'обратно в теннис');
   });
 
   await step('крестик прячет окно в трей: приложение работает, лента закрыта и открывается при показе', async () => {

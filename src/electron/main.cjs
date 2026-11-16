@@ -1,5 +1,5 @@
 // Главный процесс: поднимает ядро матч-центра, показывает окно, живёт в трее, уведомляет о матчах
-// избранных игроков, открывает плеер в отдельных окнах и обновляется из GitHub Releases.
+// избранных игроков и команд, открывает плеер в отдельных окнах и обновляется из GitHub Releases.
 const {
   app, BrowserWindow, Menu, Notification, Tray, clipboard, dialog, ipcMain, nativeImage, nativeTheme, net, screen, shell,
 } = require('electron');
@@ -7,17 +7,18 @@ const os = require('node:os');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { keepContentRatio } = require('./aspect.cjs');
-const { dataDir } = require('./data-dir.cjs');
+const { dataDir, legacyTennisSettings } = require('./data-dir.cjs');
 const { configurePlayerAudio } = require('./player-audio.cjs');
 
-const APP_ID = 'ru.sportcenter.tenniscenter';
-const NAME = 'Матч-центр Теннис';
-const TITLE = 'Матч-центр | Теннис';
+// Объединённое приложение наследует футбольный «Матч-центр»: тот же идентификатор и та же папка
+// данных — его установки обновляются на месте
+const APP_ID = 'ru.sportcenter.matchcenter';
+const NAME = 'Матч-центр';
 const PRELOAD = path.join(__dirname, 'preload.cjs');
 const PLAYER_PRELOAD = path.join(__dirname, 'preload-player.cjs');
 const ICON = path.join(__dirname, '..', 'assets', 'icon.ico');
 const ICON_PNG = path.join(__dirname, '..', 'assets', 'icon.png');
-const RELEASES = 'https://github.com/eonyushkin-commits/match-center-tennis/releases';
+const RELEASES = 'https://github.com/eonyushkin-commits/match-center/releases';
 const load = (file) => import(pathToFileURL(path.join(__dirname, '..', file)).href);
 
 // во внешний браузер отдаём только обычные веб-ссылки
@@ -45,7 +46,8 @@ function restoreBounds(saved) {
 // папка данных — на латинице; запуск из исходников не должен делить профиль с установленным
 // приложением (и мешать ему), у него своя папка. Заданный ключом --user-data-dir профиль
 // не трогаем (так запускаются проверки npm run smoke)
-if (!app.commandLine.hasSwitch('user-data-dir')) app.setPath('userData', dataDir(app.getPath('appData'), app.isPackaged));
+const ownProfile = !app.commandLine.hasSwitch('user-data-dir');
+if (ownProfile) app.setPath('userData', dataDir(app.getPath('appData'), app.isPackaged));
 
 let win = null;
 let mc = null;
@@ -62,10 +64,11 @@ function showWindow() {
   win.focus();
 }
 
-// Открыть матч из уведомления: показать окно и попросить страницу раскрыть матч (с плеером, если идёт эфир)
-function openMatch(date, id) {
+// Открыть матч из уведомления: показать окно и попросить страницу открыть вид спорта и раскрыть
+// матч (с плеером, если идёт эфир)
+function openMatch(sport, date, id) {
   showWindow();
-  win?.webContents.send('open-match', { date, id });
+  win?.webContents.send('open-match', { sport, date, id });
 }
 
 function notify({ title, body, onClick }) {
@@ -91,6 +94,13 @@ async function start() {
     nodeFetch: (...args) => globalThis.fetch(...args), // встроенный fetch Node.js — для источников, которым он нужен (см. app.mjs)
     pageReader,
     version: app.getVersion(),
+    // Прежние настройки: файл версии 1 в своей папке остался от футбольного «Матч-центра»,
+    // настройки тенниса один раз забираются из папки отдельного теннисного приложения.
+    // С заданным профилем (--user-data-dir, проверки) чужие папки не читаем.
+    settingsFrom: {
+      v1Sport: 'football',
+      importFrom: ownProfile ? { tennis: legacyTennisSettings(app.getPath('appData'), app.isPackaged) } : {},
+    },
   });
 
   const s = mc.settings.get();
@@ -103,7 +113,7 @@ async function start() {
     show: false,
     // запуск сразу в трей: без этого страница считает себя видимой и подписывается на ленту впустую
     paintWhenInitiallyHidden: !toTray,
-    title: `${TITLE} · v${app.getVersion()}`,
+    title: `${NAME} · v${app.getVersion()}`,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1116' : '#f3f5f8',
     autoHideMenuBar: true,
     // Сессия VK только в памяти: вход не сохраняется между запусками.
@@ -112,7 +122,11 @@ async function start() {
   });
   win.webContents.session.setSpellCheckerEnabled(false);
   if (s.ui.window?.maximized) win.maximize();
-  win.on('page-title-updated', (e) => e.preventDefault()); // заголовок с версией, а не <title> страницы
+  // заголовок окна — название страницы («Матч-центр | Футбол») с версией
+  win.on('page-title-updated', (e, title) => {
+    e.preventDefault();
+    win.setTitle(`${title || NAME} · v${app.getVersion()}`);
+  });
   if (!toTray) win.once('ready-to-show', () => win.show());
 
   // Открытие официального плеера разрешено только главной странице приложения.
@@ -175,7 +189,7 @@ async function start() {
     e.preventDefault();
     win.hide();
     if (!mc.settings.get().ui.trayHintShown) {
-      notify({ title: `${NAME} работает в трее`, body: 'Уведомления о матчах избранных игроков продолжат приходить. Выйти — правой кнопкой по значку в трее.', onClick: showWindow });
+      notify({ title: `${NAME} работает в трее`, body: 'Уведомления о матчах избранных продолжат приходить. Выйти — правой кнопкой по значку в трее.', onClick: showWindow });
       mc.settings.update({ ui: { trayHintShown: true } }).catch(() => {});
     }
   });
@@ -184,11 +198,13 @@ async function start() {
     app.quit();
   });
 
-  mc.onNotify(({ date, match }) => {
+  mc.onNotify(({ sport, date, match }) => {
     const title = `${match.home.name} — ${match.away.name}`;
-    const live = match.streams.find((x) => x.status === 'started');
-    const body = `Матч начался${live ? ` · смотреть: ${live.channel}` : ''}`;
-    notify({ title, body, onClick: () => openMatch(date, match.id) });
+    const label = mc.sports.find((x) => x.id === sport)?.label;
+    // эфиры известны только у вида спорта, открытого в окне: у остальных каналы не опрашиваются
+    const live = mc.settings.get().ui.sport === sport && match.streams.find((x) => x.status === 'started');
+    const body = `${label ? `${label} · м` : 'М'}атч начался${live ? ` · смотреть: ${live.channel}` : ''}`;
+    notify({ title, body, onClick: () => openMatch(sport, date, match.id) });
   });
 
   trayImage = nativeImage.createFromPath(ICON_PNG).resize({ width: 16, height: 16 });

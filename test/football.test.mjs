@@ -339,3 +339,23 @@ test('отчёт: у вида спорта, который не открывал
   assert.match(report, /=== Теннис ===[^=]*VK: первое чтение ещё идёт\n {2}ждёт tennisprimesport:/);
   assert.match(report, /=== Футбол ===[^=]*VK: каналы не опрашиваются — вид спорта не открыт в окне\n$/);
 });
+
+test('отчёт: свои каналы обоих видов спорта заменяются подписями — и в списке, и в тексте ошибок', async () => {
+  const s = {
+    tennis: resolve({ channels: [{ screenName: 'my_tennis_secret', label: 'Теннис Ивана' }] }),
+    football: settingsOf({ channels: [{ screenName: 'my_football_secret', label: 'Футбол Ивана' }] }),
+  };
+  const settings = { get: (id) => s[id], warnings: [] };
+  const fail = async (ch) => { throw new Error(`HTTP 500 https://vkvideo.ru/@${ch.screenName}/lives (${ch.label})`); };
+  const units = [tennis, football].map((sport) => ({
+    sport,
+    source: sport.createSource({ fetchImpl: answers({}), nodeFetch: answers({}) }),
+    poller: createStreamPoller({ channels: () => s[sport.id].channels.filter((c) => !c.builtIn), intervalMs: () => 1e9, readers: [{ name: 'api', read: fail }], parseTitle: sport.parseTitle, log: {} }),
+  }));
+  for (const u of units) { await u.poller.refresh(); u.poller.stop(); }
+  const report = buildReport({ app: { name: 'Матч-центр', version: '3', packaged: true, electron: '1', chrome: '1', node: '1', os: 'x' }, core: coreDiagnostics({ settings, units }) });
+  assert.match(report, /=== Теннис ===[^=]*сбой свой канал 1: [^\n]*\n\s+ошибка: api: HTTP 500 https:\/\/vkvideo\.ru\/@свой канал 1\/lives \(свой канал 1\)/);
+  assert.match(report, /=== Футбол ===[^=]*сбой свой канал 2: [^\n]*\n\s+ошибка: api: HTTP 500 https:\/\/vkvideo\.ru\/@свой канал 2\/lives \(свой канал 2\)/);
+  assert.doesNotMatch(report, /my_tennis_secret|my_football_secret|Ивана/);
+  assert.match(report, /^Матч-центр — диагностический отчёт/, 'название приложения и заголовки видов целы');
+});
