@@ -53,7 +53,7 @@ function core({ user = {}, warnings = [], readers, espnFetch } = {}) {
   const settings = { get: () => s, warnings };
   const poller = createStreamPoller({ channels: () => s.channels.filter((c) => c.enabled), intervalMs: () => 1e9, readers, log: quiet });
   const espn = createEspn(espnFetch);
-  return { settings, poller, sport: tennis, source: espn };
+  return { settings, source: espn, poller, units: [{ sport: tennis, source: espn, poller }] };
 }
 
 test('отчёт: версия, ОС, счётчики настроек, ESPN по турам и каналы; свои каналы и имена игроков не попадают', async () => {
@@ -99,7 +99,7 @@ test('отчёт: неудачи запасного чтения и пауза �
   await deps.poller.refresh();
   deps.poller.stop();
   const d = coreDiagnostics({ ...deps });
-  const ch = d.vk.channels[0];
+  const ch = d.sports[0].vk.channels[0];
   assert.equal(ch.fails, 1);
   assert.ok(ch.pausedUntil > d.now);
   assert.match(buildReport({ app: APP, core: d }), /неудач запасного чтения подряд 1, запасное чтение на паузе до /);
@@ -130,7 +130,7 @@ test('ESPN: время успеха меняется только настоящ
 test('отчёт: свой канал заменяется только целым словом — название приложения и встроенные каналы целы', () => {
   const s = resolve({ channels: [{ screenName: 'tennis', label: 'Теннис' }] });
   const poller = createStreamPoller({ channels: () => s.channels, intervalMs: () => 1e9, readers: [], log: quiet });
-  const report = buildReport({ app: APP, core: coreDiagnostics({ settings: { get: () => s, warnings: [] }, poller, sport: tennis, source: createEspn() }) });
+  const report = buildReport({ app: APP, core: coreDiagnostics({ settings: { get: () => s, warnings: [] }, units: [{ sport: tennis, source: createEspn(), poller }] }) });
   assert.match(report, /^Матч-центр Теннис — диагностический отчёт/);
   assert.match(report, /ждёт tennisprimesport:/);
   assert.match(report, /ждёт свой канал 1:/);

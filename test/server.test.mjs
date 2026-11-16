@@ -26,7 +26,7 @@ before(async () => {
   const poller = Object.assign(new EventEmitter(), { snapshot: () => snapshot, retry() {} });
   const espn = { day: async () => data, refresh() {} };
   const feed = createFeed({ settings, poller, sport: tennis, source: espn, version: 'test' });
-  const handler = createHandler({ settings, poller, source: espn, feed, imageHosts: tennis.imageHosts });
+  const handler = createHandler({ settings, units: [{ sport: tennis, source: espn, poller, feed }] });
   ({ server: srv, url: base } = await startServer(handler));
 });
 after(() => srv.close());

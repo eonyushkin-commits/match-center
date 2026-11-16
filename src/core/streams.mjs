@@ -118,7 +118,7 @@ export function createStreamPoller({ channels, intervalMs, readers, parseTitle, 
   // Настройки поменялись: если это каналы или частота — перечитываем сразу, не дожидаясь
   // следующего круга (он назначен ещё со старой частотой)
   function sync() {
-    if (config() !== applied) refresh();
+    if (!stopped && config() !== applied) refresh();
   }
 
   function retry() {
@@ -146,11 +146,19 @@ export function createStreamPoller({ channels, intervalMs, readers, parseTitle, 
     };
   }
 
+  // Остановленный опрос сам каналы не читает, но прочитанное раньше помнит; refresh и retry
+  // читают один раз и по расписанию не продолжают.
   function stop() {
     stopped = true;
     clearTimeout(timer);
     timer = null;
   }
 
-  return Object.assign(events, { refresh, retry, sync, snapshot, stop });
+  // снова читать по расписанию, начиная прямо сейчас
+  function start() {
+    stopped = false;
+    return refresh();
+  }
+
+  return Object.assign(events, { refresh, retry, sync, snapshot, stop, start, running: () => !stopped });
 }

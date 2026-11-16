@@ -1,7 +1,6 @@
 // Локальный сервер: страница матч-центра и её API.
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { sportById } from '../sports/index.mjs';
 
 const WEB = new URL('../web/', import.meta.url);
 // Отдаём только перечисленные файлы страницы
@@ -9,7 +8,7 @@ const FILES = ['index.html', 'app.js', 'dom.mjs', 'filter.mjs', 'format.mjs', 's
 const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8' };
 const STATIC = Object.fromEntries(FILES.map((file) => [`/${file}`, [file, TYPES[file.split('.').pop()]]]));
 STATIC['/'] = STATIC['/index.html'];
-// Картинки — только свои и с адресов источников расписания (imageHosts вида спорта);
+// Картинки — только свои и с адресов источников расписания (imageHosts видов спорта);
 // встраивание чужих страниц запрещено.
 const csp = (imageHosts) => [
   "default-src 'self'",
@@ -58,19 +57,23 @@ function validTimeZone(tz) {
   }
 }
 
-export function createHandler({ settings, poller, source, feed, imageHosts = [] }) {
-  const CSP = csp(imageHosts);
-  // Настройки отдаются и правятся по видам спорта: ?sport=<вид>, без него — вид, открытый в окне.
-  // Общие поля (тема, трей, уведомления…) одни на все виды, с каким бы видом их ни прислали.
-  const sportOf = (u) => {
+// units — по одному на вид спорта: { sport, source, poller, feed }
+export function createHandler({ settings, units }) {
+  const CSP = csp([...new Set(units.flatMap((u) => u.sport.imageHosts))]);
+  const byId = new Map(units.map((u) => [u.sport.id, u]));
+  // Всё отдаётся по видам спорта: ?sport=<вид>, без него — вид, открытый в окне.
+  // Общие настройки (тема, трей, уведомления…) одни на все виды, с каким бы видом их ни прислали.
+  const unitOf = (u) => {
     const id = u.searchParams.get('sport') ?? settings.get().ui.sport;
-    if (!sportById(id)) throw new HttpError(400, `sport: неизвестный вид спорта «${id}»`);
-    return id;
+    const unit = byId.get(id);
+    if (!unit) throw new HttpError(400, `sport: неизвестный вид спорта «${id}»`);
+    return unit;
   };
-  const withLeagues = (s, id) => ({ ...s, knownLeagues: sportById(id).defaults.knownLeagues });
+  const withLeagues = (s, sport) => ({ ...s, knownLeagues: sport.defaults.knownLeagues });
 
   // Лента (Server-Sent Events): расписание дня date и состояние каналов — сразу и при каждом изменении. Подписка живёт, пока открыто соединение.
   function events(u, res) {
+    const { feed } = unitOf(u);
     const date = u.searchParams.get('date') || '';
     const tz = u.searchParams.get('tz') || 'Europe/Moscow';
     if (!/^\d{8}$/.test(date)) throw new HttpError(400, 'date: нужен формат ГГГГММДД');
@@ -81,16 +84,23 @@ export function createHandler({ settings, poller, source, feed, imageHosts = [] 
 
   const routes = {
     'GET /api/settings': (u) => {
-      const id = sportOf(u);
-      return withLeagues(settings.get(id), id);
+      const { sport } = unitOf(u);
+      return withLeagues(settings.get(sport.id), sport);
     },
     'PUT /api/settings': async (u, req) => {
-      const id = sportOf(u);
-      return withLeagues(await settings.update(await readJson(req), id), id);
+      const { sport } = unitOf(u);
+      return withLeagues(await settings.update(await readJson(req), sport.id), sport);
     },
-    'POST /api/refresh': () => {
+    // названия турниров источника для выбора в настройках — у видов, где турнир добавляется по номеру
+    'GET /api/leagues': (u) => {
+      const { sport, source } = unitOf(u);
+      if (!sport.leagueCatalog) throw new HttpError(404, 'Не найдено');
+      return sport.leagueCatalog(source);
+    },
+    'POST /api/refresh': (u) => {
       // по кнопке: расписание и каналы перечитываются сразу (каналы — без пауз запасного чтения);
       // когда каналы прочитаны, лента присылает странице новое расписание
+      const { source, poller } = unitOf(u);
       source.refresh();
       poller.retry();
       return { ok: true };

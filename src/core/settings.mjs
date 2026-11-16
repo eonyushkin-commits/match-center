@@ -38,7 +38,13 @@ function invalid(message) {
 
 const isObject = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => obj[k] !== undefined).map((k) => [k, obj[k]]));
-const knownLeagues = (sport) => new Set(sport.defaults.knownLeagues.map((l) => l.id)); // турниры (разряды) вида спорта
+// Какие номера турниров принимает вид спорта: только свои известные (разряды тенниса)
+// или любой номер источника (openLeagues: турниры футбола добавляются по номеру)
+function leagueCheck(sport) {
+  if (sport.openLeagues) return (n) => Number.isInteger(n) && n > 0;
+  const known = new Set(sport.defaults.knownLeagues.map((l) => l.id));
+  return (n) => known.has(n);
+}
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 // Раздел вида спорта: каналы, турниры, написания, избранное
@@ -63,10 +69,10 @@ function resolveSport(user, sport) {
     for (const [team, names] of Object.entries(src))
       teamAliases[team] = [...new Set([...(teamAliases[team] || []), ...names])];
 
-  const known = knownLeagues(sport);
+  const ok = leagueCheck(sport);
   return {
     channels: [...channels.values()],
-    leagues: Array.isArray(user.leagues) && user.leagues.some((id) => known.has(id)) ? user.leagues.filter((id) => known.has(id)) : d.leagues,
+    leagues: Array.isArray(user.leagues) && user.leagues.some(ok) ? user.leagues.filter(ok) : d.leagues,
     teamAliases,
     userAliases,
     favorites: Array.isArray(user.favorites) ? user.favorites : [],
@@ -144,8 +150,7 @@ export function applyPatch(user, patch, sport = defaultSport) {
 
   if (patch.leagues !== undefined) {
     if (!Array.isArray(patch.leagues)) throw invalid('leagues: ожидался список');
-    const known = knownLeagues(sport);
-    const ids = [...new Set(patch.leagues.map(Number))].filter((n) => known.has(n));
+    const ids = [...new Set(patch.leagues.map(Number))].filter(leagueCheck(sport));
     if (!ids.length) throw invalid(sport.texts.pickLeague);
     next.leagues = sameList(ids, d.leagues) ? undefined : ids;
   }

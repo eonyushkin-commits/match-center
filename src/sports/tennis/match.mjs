@@ -1,4 +1,7 @@
 // Сопоставление заголовков VK-эфиров с теннисными матчами.
+// Нечёткое сравнение (dice: опечатки, «Дабровски»/«Дабровский») и порядок эфиров — общие, из core/matching.mjs.
+import { dice, streamOrder } from '../../core/matching.mjs';
+
 // э → е: каналы пишут и «Баэс», и «Баес», и «Шувэй», и «Шувей».
 export const norm = (s) => String(s ?? '')
   .toLowerCase()
@@ -28,22 +31,6 @@ const LATIN = {
 };
 // «басаваредди» → «basavareddi»: игрока, которого нет в словаре русских имён, узнаём по латинице
 export const latinize = (s) => s.replace(/[а-я]/g, (c) => LATIN[c] ?? c);
-
-function bigrams(s) {
-  const out = new Set();
-  const t = s.replace(/ /g, '');
-  for (let i = 0; i < t.length - 1; i++) out.add(t.slice(i, i + 2));
-  return out;
-}
-
-// Нечёткое сравнение (опечатки, «Дабровски»/«Дабровский»). Ниже 0.72 считаем разными игроками.
-function dice(a, b) {
-  const A = bigrams(a), B = bigrams(b);
-  let inter = 0;
-  for (const x of A) if (B.has(x)) inter++;
-  const d = (2 * inter) / (A.size + B.size || 1);
-  return d >= 0.72 ? d : 0;
-}
 
 // a — имя игрока (фамилия или полное), b — половина заголовка эфира (может содержать лишние слова)
 export function nameScore(a, b) {
@@ -80,15 +67,7 @@ function sideScore(players, s) {
   return Math.min(...players.map((names) => best(names, s, lat)));
 }
 
-const RANK = { started: 0, upcoming: 1, finished: 2, failed: 3 };
 const HOUR = 3600e3;
-// Внутри статуса: записи — по дате создания видео, идущие и запланированные — по времени начала
-// (не по зрителям: иначе кнопки меняются местами при каждом обновлении)
-function withinStatus(x, y) {
-  if (x.status === 'finished') return (x.created ?? x.time ?? 0) - (y.created ?? y.time ?? 0);
-  return (x.time ?? 0) - (y.time ?? 0);
-}
-
 // match — { utcTime, finished, doubles }; home, away — написания каждого игрока стороны: [[…], […]]
 export function matchStreams(match, home, away, streams) {
   const kickoff = Date.parse(match.utcTime);
@@ -109,6 +88,6 @@ export function matchStreams(match, home, away, streams) {
     // Запланированный эфир у завершённого матча — резервный, который так и не запустили: смотреть там нечего.
     .filter((s) => !(match.finished && s.status === 'upcoming'))
     // Порядок: идущие (всегда впереди), затем запланированные, затем записи
-    .sort((x, y) => RANK[x.status] - RANK[y.status] || withinStatus(x, y) || y.score - x.score)
+    .sort((x, y) => streamOrder(x, y) || y.score - x.score)
     .map(({ teams, doubles, score, ...s }) => s);
 }

@@ -38,28 +38,38 @@ const short = (e) => {
   return s.length > MAX_ERROR ? `${s.slice(0, MAX_ERROR)}…` : s;
 };
 
-// Состояние ядра: счётчики настроек, предупреждения, каналы VK и источник расписания.
+// Состояние ядра: предупреждения и по каждому виду спорта — счётчики настроек, каналы VK
+// и источник расписания. units — [{ sport, source, poller }].
 // private — имена и подписи своих каналов пользователя: buildReport заменит их везде,
 // в том числе в текстах ошибок, на «свой канал N».
-export function coreDiagnostics({ settings, poller, sport, source, now = Date.now() }) {
-  const s = settings.get(sport.id);
-  const own = s.channels.filter((c) => !c.builtIn);
+export function coreDiagnostics({ settings, units, now = Date.now() }) {
+  const own = [];
+  const sports = units.map(({ sport, source, poller }) => {
+    const s = settings.get(sport.id);
+    const mine = s.channels.filter((c) => !c.builtIn);
+    own.push(...mine);
+    return {
+      label: sport.label,
+      settings: {
+        channels: s.channels.length,
+        enabled: s.channels.filter((c) => c.enabled).length,
+        own: mine.length,
+        leagues: s.leagues.length,
+        favorites: s.favorites.length,
+        favoriteMatches: s.favoriteMatches.length,
+        ownAliases: Object.keys(s.userAliases).length,
+      },
+      vk: poller.snapshot(),
+      polling: poller.running(), // каналы опрашиваются только у вида, открытого в окне
+      // источник расписания: name — подпись в отчёте, health — [{ name, okAt, errorAt, error }]
+      source: { name: sport.sourceName, health: sport.health(source) },
+      texts: sport.texts,
+    };
+  });
   return {
     now,
-    settings: {
-      channels: s.channels.length,
-      enabled: s.channels.filter((c) => c.enabled).length,
-      own: own.length,
-      leagues: s.leagues.length,
-      favorites: s.favorites.length,
-      favoriteMatches: s.favoriteMatches.length,
-      ownAliases: Object.keys(s.userAliases).length,
-    },
     warnings: [...settings.warnings],
-    vk: poller.snapshot(),
-    // источник расписания: name — подпись в отчёте, health — [{ name, okAt, errorAt, error }]
-    source: { name: sport.sourceName, health: sport.health(source) },
-    texts: sport.texts,
+    sports,
     private: own.flatMap((c, i) => [[`свой канал ${i + 1}`, c.screenName], [`свой канал ${i + 1}`, c.label]]),
   };
 }
@@ -77,37 +87,44 @@ export function buildReport({ app, core }, { paths = [] } = {}) {
   ];
   const lines = [];
   const add = (...l) => lines.push(...l);
-  const { settings: c, texts } = core;
-  add(
-    '',
-    'Настройки (только счётчики):',
-    `  каналов: ${c.channels}, включено: ${c.enabled}, своих: ${c.own}`,
-    `  ${texts.leagues}: ${c.leagues}; ${texts.favorites}: ${c.favorites}; отмеченных матчей: ${c.favoriteMatches}; своих написаний: ${c.ownAliases}`,
-  );
   add('', core.warnings.length ? 'Предупреждения:' : 'Предупреждения: нет');
   for (const w of core.warnings) add(`  - ${short(w)}`);
 
-  add('', `${core.source.name}:`);
-  if (!core.source.health.length) add('  запросов ещё не было');
-  for (const e of core.source.health) {
-    add(`  ${e.name}: последний успех ${at(e.okAt)}; последняя ошибка ${e.errorAt ? `${at(e.errorAt)} — ${short(e.error)}` : 'нет'}`);
-  }
+  for (const sp of core.sports) {
+    const { settings: c, texts, vk } = sp;
+    add(
+      '',
+      `=== ${sp.label} ===`,
+      'Настройки (только счётчики):',
+      `  каналов: ${c.channels}, включено: ${c.enabled}, своих: ${c.own}`,
+      `  ${texts.leagues}: ${c.leagues}; ${texts.favorites}: ${c.favorites}; отмеченных матчей: ${c.favoriteMatches}; своих написаний: ${c.ownAliases}`,
+    );
 
-  const vk = core.vk;
-  add('', `VK: ${vk.ready ? `круг чтения завершён ${at(vk.updatedAt)}` : 'первое чтение ещё идёт'}`);
-  if (!vk.channels.length) add('  включённых каналов нет');
-  for (const ch of vk.channels) {
-    const state = ch.ok === null ? 'ждёт ' : ch.ok ? 'ok   ' : 'сбой ';
-    const parts = [
-      ch.ok ? `через ${ch.via}` : null,
-      `эфиров ${ch.count}`,
-      `проверен ${at(ch.checkedAt)}`,
-      `данные от ${at(ch.okAt)}`,
-      ch.fails ? `неудач запасного чтения подряд ${ch.fails}` : null,
-      ch.pausedUntil ? `запасное чтение на паузе до ${at(ch.pausedUntil)}` : null,
-    ].filter(Boolean);
-    add(`  ${state}${ch.screenName}: ${parts.join(', ')}`);
-    if (ch.error) add(`        ошибка: ${short(ch.error)}`);
+    add('', `${sp.source.name}:`);
+    if (!sp.source.health.length) add('  запросов ещё не было');
+    for (const e of sp.source.health) {
+      add(`  ${e.name}: последний успех ${at(e.okAt)}; последняя ошибка ${e.errorAt ? `${at(e.errorAt)} — ${short(e.error)}` : 'нет'}`);
+    }
+
+    if (!sp.polling && !vk.ready) {
+      add('', 'VK: каналы не опрашиваются — вид спорта не открыт в окне');
+      continue;
+    }
+    add('', `VK: ${vk.ready ? `круг чтения завершён ${at(vk.updatedAt)}` : 'первое чтение ещё идёт'}${sp.polling ? '' : ' (опрос остановлен)'}`);
+    if (!vk.channels.length) add('  включённых каналов нет');
+    for (const ch of vk.channels) {
+      const state = ch.ok === null ? 'ждёт ' : ch.ok ? 'ok   ' : 'сбой ';
+      const parts = [
+        ch.ok ? `через ${ch.via}` : null,
+        `эфиров ${ch.count}`,
+        `проверен ${at(ch.checkedAt)}`,
+        `данные от ${at(ch.okAt)}`,
+        ch.fails ? `неудач запасного чтения подряд ${ch.fails}` : null,
+        ch.pausedUntil ? `запасное чтение на паузе до ${at(ch.pausedUntil)}` : null,
+      ].filter(Boolean);
+      add(`  ${state}${ch.screenName}: ${parts.join(', ')}`);
+      if (ch.error) add(`        ошибка: ${short(ch.error)}`);
+    }
   }
   return `${sanitize(head.join('\n'), { replace: paths })}\n${sanitize(lines.join('\n'), { replace: [...paths, ...core.private] })}\n`;
 }

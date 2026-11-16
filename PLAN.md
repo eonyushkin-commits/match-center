@@ -43,8 +43,16 @@
   Проверки 16.11.2026, локально: `npm test` 144/144, `npm run smoke` 12/12; перенос копий
   настоящих файлов `TennisCenter` и `MatchCenter` во временной папке. Приложение с
   настоящей папкой данных не запускалось. Теннисных текстов в `src/core` больше нет.
-  **Следующее действие:** этап 3 — футбол в ядре (`src/sports/football`: FotMob, день,
-  сопоставление; второй опрос каналов; `sport` в `/api/events` и `/api/refresh`).
+  **Этап 3 выполнен 16.11.2026** (ветка `merge/stage-3-football` от ветки этапа 2): футбол
+  в ядре — `src/sports/football/` (FotMob, день, сопоставление), по набору «источник, опрос
+  каналов, лента, уведомления» на каждый вид спорта, `sport` в запросах сервера. Каналы VK
+  опрашиваются только у вида из `ui.sport`. Устройство, отступления и пределы проверки —
+  этап 3 в плане объединения. Проверки 16.11.2026, локально: `npm test` 166/166,
+  `npm run smoke` 12/12; настоящий FotMob прочитан скриптом по ядру (расписание, названия,
+  справочник турниров). Не проверено: счёт идущего футбольного матча, настоящие футбольные
+  каналы VK, FotMob через сетевой стек Chromium. В окне футбола пока нет.
+  **Следующее действие:** этап 4 — страница: переключатель «Теннис / Футбол», строка матча
+  и тексты по видам спорта (`src/web/sports/`), ответы FotMob в подставной сети smoke.
 
 - **Завершено 15.11.2026: релиз 1.0.9 опубликован как latest** по запросу пользователя:
   https://github.com/eonyushkin-commits/match-center-tennis/releases/tag/v1.0.9
@@ -236,6 +244,8 @@
 - `src/core/vk-api.mjs`, `streams.mjs`, `vk-items.mjs` — чтение и опрос эфиров VK.
 - `src/electron/page-reader.mjs`, `preload-vk.cjs` — запасное чтение страницы канала.
 - `src/sports/tennis/match.mjs`, `players.json` — сопоставление игроков и эфиров.
+- `src/sports/football/` — футбол: `source.mjs` (FotMob), `day.mjs`, `match.mjs`, `defaults.json`.
+- `src/sports/index.mjs` — список видов спорта; `src/core/matching.mjs`, `cache.mjs`, `dates.mjs` — общее для видов.
 - `src/core/settings.mjs`, `defaults.json` (общие) и `src/sports/tennis/defaults.json` (каналы, разряды, написания) — настройки и хранение отличий пользователя.
 - `src/core/watch.mjs`, `feed.mjs`, `server.mjs`, `app.mjs` — уведомления, SSE, сервер, ядро.
 - `src/core/diagnostics.mjs` — отчёт для диагностики и его очистка.
