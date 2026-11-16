@@ -1,10 +1,10 @@
 // Лента для страницы. Страница не опрашивает сервер: она подписывается на день, а ядро само
 // присылает расписание и состояние каналов — сразу и потом каждый раз, когда они меняются.
-// Счёт у ESPN приходится спрашивать по часам, эфиры и настройки сообщают о себе сами.
-import { buildDay, toursOf } from './day.mjs';
+// Счёт у источника приходится спрашивать по часам, эфиры и настройки сообщают о себе сами.
+// sport — описание вида спорта (src/sports), source — его источник расписания.
 
 // dayMs — как часто спрашиваем счёт: реже, чем живёт кэш табло (45 с), иначе круг впустую
-export function createFeed({ settings, poller, espn, version, dayMs = 60e3, retryMs = 15e3 }) {
+export function createFeed({ settings, poller, sport, source, version, dayMs = 60e3, retryMs = 15e3 }) {
   const stops = new Set();
 
   // send(event, json): status | day | day-error. Возвращает отписку.
@@ -31,8 +31,8 @@ export function createFeed({ settings, poller, espn, version, dayMs = 60e3, retr
       status();
       try {
         const s = settings.get();
-        const data = await espn.day(date, toursOf(s.leagues));
-        push('day', 'day', buildDay({ data, date, tz, settings: s, snapshot: poller.snapshot() }));
+        const data = await source.day(date, sport.dayQuery(s, tz));
+        push('day', 'day', sport.buildDay({ data, date, tz, settings: s, snapshot: poller.snapshot() }));
         return true;
       } catch (e) {
         push('day', 'day-error', { message: e.message });
@@ -47,7 +47,7 @@ export function createFeed({ settings, poller, espn, version, dayMs = 60e3, retr
     }
     loop();
     // прочитаны каналы или сохранены настройки — расписание сразу, не дожидаясь круга.
-    // Размер окна, тема и фильтры на расписание не влияют: ради них ESPN не спрашиваем.
+    // Размер окна, тема и фильтры на расписание не влияют: ради них источник не спрашиваем.
     const dayKey = (s) => JSON.stringify([s.leagues, s.favorites, s.favoriteMatches, s.teamAliases]);
     const changed = (s, prev) => (s && prev && dayKey(s) === dayKey(prev) ? status() : day());
     poller.on('update', day);

@@ -1,8 +1,8 @@
 // Свежесть счёта: время последнего настоящего ответа ESPN, а не перерисовки или чтения кэша.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildDay } from '../src/core/day.mjs';
-import { createEspn } from '../src/core/espn.mjs';
+import { buildDay } from '../src/sports/tennis/day.mjs';
+import { createEspn } from '../src/sports/tennis/source.mjs';
 import { resolve } from '../src/core/settings.mjs';
 import { stamp } from '../src/web/format.mjs';
 import { footHtml, notices } from '../src/web/view.mjs';

@@ -197,7 +197,7 @@ app.whenReady().then(async () => {
   await step('клик по уведомлению: скрытое окно показывается и открывает идущий матч в плеере', async () => {
     win.hide();
     await sleep(300);
-    const { ymdIn } = await import('../../src/core/day.mjs');
+    const { ymdIn } = await import('../../src/core/dates.mjs');
     win.showInactive(); // как openMatch в main.cjs: показать окно и попросить страницу раскрыть матч
     win.webContents.send('open-match', { date: ymdIn(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone), id: 101 });
     await until('окно из уведомления', () => players().length === 2);

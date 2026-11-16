@@ -62,7 +62,7 @@ export function createVkApi(fetchImpl = fetch, { now = () => Date.now(), deepTtl
     return j.response;
   }
 
-  async function readChannel(ch) {
+  async function readChannel(ch, parseTitle) {
     const first = await call('catalog.getVideo', { url: `https://vkvideo.ru/@${ch.screenName}/lives`, need_blocks: '1' });
     const fresh = [...(first.videos || [])];
     const catalog = first.catalog;
@@ -91,7 +91,7 @@ export function createVkApi(fetchImpl = fetch, { now = () => Date.now(), deepTtl
     // пустой ответ чаще всего означает гео-ограничение: API отвечает, но без эфиров
     if (!videos.length) throw new Error('канал не вернул ни одного видео (доступ не из России?)');
     if (full || prev) seen.set(ch.screenName, { videos: merged, fullAt: full ? now() : prev.fullAt });
-    return toItems(videos, ch);
+    return toItems(videos, ch, parseTitle);
   }
 
   return { name: 'api', read: readChannel };

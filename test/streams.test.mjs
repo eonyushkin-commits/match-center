@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { matchStreams, parseTeams } from '../src/core/match.mjs';
+import { matchStreams, parsePair, parseTeams } from '../src/sports/tennis/match.mjs';
 import { createStreamPoller } from '../src/core/streams.mjs';
 import { createVkApi } from '../src/core/vk-api.mjs';
 import { toItems } from '../src/core/vk-items.mjs';
@@ -113,7 +113,7 @@ test('sync перечитывает каналы, только если поме
 
 test('toItems: повторы одного видео убираются, статусы переводятся', () => {
   const v = (status, id = 1) => ({ owner_id: -5, id, title: 'Брайтон — Арсенал | АПЛ', live_status: status, date: 1758380000, player: 'https://vkvideo.ru/video_ext.php?oid=-5&id=1&hash=x' });
-  const items = toItems([v('upcoming'), v('started'), v('postlive', 2), { ...v('started', 3), title: 'Обзор тура' }], { label: 'Канал' });
+  const items = toItems([v('upcoming'), v('started'), v('postlive', 2), { ...v('started', 3), title: 'Обзор тура' }], { label: 'Канал' }, parsePair);
   assert.deepEqual(items.map((s) => [s.url, s.status]), [['https://vkvideo.ru/live-5_1', 'started'], ['https://vkvideo.ru/live-5_2', 'finished']]);
   assert.equal(items[0].channel, 'Канал');
   assert.equal(items[0].time, 1758380000000);
@@ -124,7 +124,7 @@ test('toItems: зрители эфира и дата создания видео
   const [live, record] = toItems([
     v(1, 'started', { spectators: 1234, date: 1758370000, live_start_time: 1758380000 }),
     v(2, 'postlive', { views: 18557, date: 1758360000 }), // у записей VK не присылает spectators
-  ], { label: 'Канал' });
+  ], { label: 'Канал' }, parsePair);
   assert.equal(live.spectators, 1234);
   assert.equal(live.created, 1758370000000, 'дата создания, а не начала эфира');
   assert.equal(live.time, 1758380000000);
@@ -158,10 +158,10 @@ test('VK API: каналы, читаемые параллельно, ждут о
     return { ok: true, json: async () => json };
   };
   const api = createVkApi(fetchImpl);
-  const lists = await Promise.all(['a', 'b', 'c', 'd'].map((screenName) => api.read({ screenName })));
+  const lists = await Promise.all(['a', 'b', 'c', 'd'].map((screenName) => api.read({ screenName }, parsePair)));
   assert.equal(tokens, 1);
   assert.ok(lists.every((l) => l.length === 1));
-  await api.read({ screenName: 'a' });
+  await api.read({ screenName: 'a' }, parsePair);
   assert.equal(tokens, 1, 'пока токен действует, новый не нужен');
 });
 
@@ -188,7 +188,7 @@ test('VK API: догрузки читаются раз в 15 минут, чащ�
   const api = createVkApi(fetchImpl, { now: () => time });
   const read = async () => {
     calls.length = 0;
-    const items = await api.read({ screenName: 'a' });
+    const items = await api.read({ screenName: 'a' }, parsePair);
     return [calls.join(''), items.map((s) => `${s.url.split('_')[1]}:${s.status}`).sort().join(' ')];
   };
   assert.deepEqual(await read(), ['012', '3:finished 4:finished 5:upcoming 9:finished'], 'первое чтение — целиком');

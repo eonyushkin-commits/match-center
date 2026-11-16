@@ -3,11 +3,11 @@
 // матчами — нужный день выбирает day.mjs. Поэтому, кроме самого дня, спрашиваем соседние:
 // ночной матч в США для Москвы уже «завтра», а турнир в ответе на «завтра» может не оказаться.
 // Одинаковые запросы, пришедшие одновременно, объединяются; при сбое сети отдаются последние
-// полученные данные с пометкой stale: { message, format }, а не ошибка. Форма каждого ответа
-// проверяется на входе: см. shape.mjs.
-import { FormatError, expect } from './shape.mjs';
+// полученные данные с пометкой stale: { message, format }, а не ошибка (см. core/cache.mjs).
+// Форма каждого ответа проверяется на входе: см. core/shape.mjs.
+import { createCache } from '../../core/cache.mjs';
+import { expect } from '../../core/shape.mjs';
 
-const MAX_ENTRIES = 40;
 const DAY_TTL_MS = 45e3; // сам день: счёт идущих матчей
 const NEAR_TTL_MS = 30 * 60e3; // соседние дни нужны только ради турниров, которых нет в ответе на сам день
 const URL_BASE = 'https://site.api.espn.com/apis/site/v2/sports/tennis';
@@ -24,9 +24,8 @@ export function shiftYmd(date, n) {
 const unfinished = (ev) => (ev.groupings || []).some((g) => (g.competitions || []).some((c) => c.status?.type?.state !== 'post'));
 
 export function createEspn(fetchImpl = fetch) {
-  // key → { t, v } | { pending }. t — срок годности (refresh его сбрасывает), а время самого
-  // ответа ESPN лежит в v.fetchedAt: чтение кэша и сбой его не меняют
-  const cache = new Map();
+  // время самого ответа ESPN лежит в значении кэша (fetchedAt): чтение кэша и сбой его не меняют
+  const cache = createCache();
   const hot = new Set(); // соседние дни, в которых нашёлся свой турнир с несыгранными матчами: их спрашиваем так же часто
   // для диагностики: tour → { okAt, errorAt, error } — время настоящих ответов ESPN, а не чтений кэша
   const health = new Map();
@@ -40,33 +39,7 @@ export function createEspn(fetchImpl = fetch) {
     return j;
   }
 
-  function cached(key, ttlMs, load) {
-    const hit = cache.get(key);
-    if (hit?.pending) return hit.pending;
-    if (hit && Date.now() - hit.t < ttlMs) return Promise.resolve(hit.v);
-    const pending = load().then(
-      (data) => {
-        const t = Date.now();
-        const v = { ...data, fetchedAt: t };
-        cache.delete(key); // переставляем в конец — самые старые записи удаляются первыми
-        cache.set(key, { t, v });
-        while (cache.size > MAX_ENTRIES) cache.delete(cache.keys().next().value);
-        return v;
-      },
-      (e) => {
-        if (hit) {
-          cache.set(key, hit);
-          return { ...hit.v, stale: { message: e.message, format: e instanceof FormatError } };
-        }
-        cache.delete(key);
-        throw e;
-      },
-    );
-    cache.set(key, { ...hit, pending });
-    return pending;
-  }
-
-  const board = (tour, date, ttlMs) => cached(`${tour}:${date}`, ttlMs, () =>
+  const board = (tour, date, ttlMs) => cache.get(`${tour}:${date}`, ttlMs, () =>
     getJson(`${URL_BASE}/${tour}/scoreboard?dates=${date}`, (j) => need(Array.isArray(j?.events), 'в табло нет списка events')).then(
       (j) => { note(tour, { okAt: Date.now() }); return j; },
       (err) => { note(tour, { errorAt: Date.now(), error: err.message }); throw err; },
@@ -108,7 +81,7 @@ export function createEspn(fetchImpl = fetch) {
     // «Обновить» по кнопке: табло спросим заново, не дожидаясь срока. Полученное раньше
     // остаётся — его покажем, если ESPN не ответит.
     refresh() {
-      for (const hit of cache.values()) hit.t = -Infinity;
+      cache.expire();
     },
   };
 }

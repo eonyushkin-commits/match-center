@@ -1,5 +1,5 @@
 // Разбор видео VK в эфиры матч-центра — общий для API и для чтения страницы канала.
-import { parsePair } from './match.mjs';
+// Участников из заголовка достаёт parseTitle вида спорта: заголовок → { teams, doubles } или null.
 import { expect, isObject } from './shape.mjs';
 
 export const hasId = (v) => isObject(v) && Number.isFinite(v.owner_id) && Number.isFinite(v.id);
@@ -16,7 +16,7 @@ export function liveStatus(s) {
   return 'finished'; // postlive, finished
 }
 
-export function toItems(videos, ch) {
+export function toItems(videos, ch, parseTitle) {
   // обычные видео без live_status — норма, а вот ни одного видео с номером и названием — нет
   expect(!videos.length || videos.some(known), 'VK', 'у видео нет owner_id, id или title');
   // одно видео может прийти несколько раз (повторные запросы страницы) — берём последнюю версию
@@ -24,7 +24,7 @@ export function toItems(videos, ch) {
   return [...unique.values()]
     .filter((v) => v.live_status && v.title)
     .map((v) => {
-      const pair = parsePair(v.title);
+      const pair = parseTitle(v.title);
       return {
         title: v.title,
         url: `https://vkvideo.ru/live${v.owner_id}_${v.id}`,
@@ -36,7 +36,7 @@ export function toItems(videos, ch) {
         duration: v.duration > 0 ? v.duration : null, // длина записи, с
         channel: ch.label || ch.screenName,
         teams: pair?.teams ?? null,
-        doubles: !!pair?.doubles, // эфир парного матча: «Гуо/Младенович — Мертенс/Чжан Шуай»
+        doubles: !!pair?.doubles, // эфир парного матча (бывает не у каждого вида спорта)
       };
     })
     .filter((s) => s.teams);

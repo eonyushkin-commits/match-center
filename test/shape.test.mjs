@@ -1,11 +1,12 @@
 // Ответы ESPN и VK неожиданной формы дают понятную ошибку, а не пустой список.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildDay } from '../src/core/day.mjs';
-import { createEspn, shiftYmd } from '../src/core/espn.mjs';
+import { buildDay } from '../src/sports/tennis/day.mjs';
+import { createEspn, shiftYmd } from '../src/sports/tennis/source.mjs';
 import { resolve } from '../src/core/settings.mjs';
 import { FormatError } from '../src/core/shape.mjs';
 import { toItems } from '../src/core/vk-items.mjs';
+import { parsePair } from '../src/sports/tennis/match.mjs';
 import { notices } from '../src/web/view.mjs';
 import { ANDREEVA, SHNAIDER, comp, event, single } from './helpers/espn-data.mjs';
 
@@ -95,13 +96,13 @@ test('ESPN недоступен после удачного ответа — п�
 });
 
 test('VK: ни у одного видео нет номера и названия — ошибка формата; пустой список и обычные видео — нет', () => {
-  assert.throws(() => toItems([{ video_id: 1, name: 'Андреева — Шнайдер' }], { label: 'X' }), /VK изменил формат ответа/);
-  assert.deepEqual(toItems([], { label: 'X' }), []);
-  assert.deepEqual(toItems([{ owner_id: -1, id: 1, title: 'Обзор дня' }], { label: 'X' }), []);
+  assert.throws(() => toItems([{ video_id: 1, name: 'Андреева — Шнайдер' }], { label: 'X' }, parsePair), /VK изменил формат ответа/);
+  assert.deepEqual(toItems([], { label: 'X' }, parsePair), []);
+  assert.deepEqual(toItems([{ owner_id: -1, id: 1, title: 'Обзор дня' }], { label: 'X' }, parsePair), []);
 });
 
 test('VK: эфир пары помечен, эфир одиночного матча — нет', () => {
   const video = (id, title) => ({ owner_id: -1, id, title, live_status: 'started' });
-  const [one, two] = toItems([video(1, 'Мирра Андреева — Диана Шнайдер | WTA Finals'), video(2, 'Перес/Схюрс — Эррани/Паолини | WTA Finals')], { label: 'X' });
+  const [one, two] = toItems([video(1, 'Мирра Андреева — Диана Шнайдер | WTA Finals'), video(2, 'Перес/Схюрс — Эррани/Паолини | WTA Finals')], { label: 'X' }, parsePair);
   assert.deepEqual([one.doubles, one.teams, two.doubles, two.teams], [false, ['мирра андреева', 'диана шнайдер'], true, ['перес схюрс', 'еррани паолини']]);
 });

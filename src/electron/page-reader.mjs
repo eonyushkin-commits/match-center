@@ -18,7 +18,7 @@ function getSession() {
   return vkSession;
 }
 
-async function readChannel(ch) {
+async function readChannel(ch, parseTitle) {
   const win = new BrowserWindow({
     show: false,
     width: 1280,
@@ -51,7 +51,7 @@ async function readChannel(ch) {
 
     const videos = await win.webContents.executeJavaScript('window.__mcCatalog || []');
     if (!videos.length) throw new Error('страница не показала ни одного эфира (доступ не из России?)');
-    return toItems(videos, ch);
+    return toItems(videos, ch, parseTitle);
   } finally {
     win.destroy();
   }

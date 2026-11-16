@@ -5,7 +5,10 @@ import { EventEmitter } from 'node:events';
 import { copyFile, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export const defaults = JSON.parse(await readFile(new URL('./defaults.json', import.meta.url), 'utf8'));
+import { defaultSport } from '../sports/index.mjs';
+
+// каналы, турниры и написания — от вида спорта; остальное общее
+export const defaults = { ...defaultSport.defaults, ...JSON.parse(await readFile(new URL('./defaults.json', import.meta.url), 'utf8')) };
 
 const SCREEN_NAME = /^[\w.-]{2,64}$/;
 const THEMES = ['system', 'light', 'dark'];
@@ -20,7 +23,7 @@ function invalid(message) {
   return Object.assign(new Error(message), { status: 400 });
 }
 
-const KNOWN_LEAGUES = new Set(defaults.knownLeagues.map((l) => l.id)); // разряды: ATP/WTA, одиночный/парный
+const KNOWN_LEAGUES = new Set(defaults.knownLeagues.map((l) => l.id)); // турниры (разряды) вида спорта
 const sameList = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
 
 // Итоговые настройки, с которыми работает приложение

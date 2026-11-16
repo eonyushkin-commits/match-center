@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 
-const read = (name) => JSON.parse(readFileSync(new URL(`../src/core/${name}`, import.meta.url), 'utf8'));
+const read = (name) => JSON.parse(readFileSync(new URL(`../src/sports/tennis/${name}`, import.meta.url), 'utf8'));
 const LEVELS = {
   atp: ['Grand Slam', 'ATP Finals', 'ATP 1000', 'ATP 500', 'ATP 250'],
   wta: ['Grand Slam', 'WTA Finals', 'WTA 1000', 'WTA 500', 'WTA 250'],

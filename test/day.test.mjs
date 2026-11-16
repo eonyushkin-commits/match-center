@@ -1,8 +1,8 @@
 // Расписание дня из табло ESPN: разряды, день в часовом поясе, счёт по сетам, эфиры.
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { buildDay, levelOf, toursOf, ymdIn } from '../src/core/day.mjs';
-import { parsePair } from '../src/core/match.mjs';
+import { buildDay, levelOf, toursOf, ymdIn } from '../src/sports/tennis/day.mjs';
+import { parsePair } from '../src/sports/tennis/match.mjs';
 import { resolve } from '../src/core/settings.mjs';
 import {
   ANDREEVA, ERRANI, FRITZ, MUSETTI, PAOLINI, SABALENKA, SHNAIDER, SINIAKOVA, SVITOLINA, TOWNSEND, board, comp, event, pair, single, tbd,

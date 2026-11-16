@@ -7,7 +7,7 @@ const MAX_ERROR = 300;
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 // Путь или слово целиком, в любом регистре; в пути разделители \ и / равнозначны
-// (C:\Users\x = c:/users/x). Целиком — чтобы свой канал «tennis» не задел «tennisprimesport»
+// (C:\Users\x = c:/users/x). Целиком — чтобы свой канал «sport» не задел встроенный «sportcast»
 function literalPattern(p) {
   const parts = p.split(/[\\/]+/).filter(Boolean).map(escapeRe);
   const lead = /^[\\/]/.test(p) ? '[\\\\/]' : '';
@@ -38,10 +38,10 @@ const short = (e) => {
   return s.length > MAX_ERROR ? `${s.slice(0, MAX_ERROR)}…` : s;
 };
 
-// Состояние ядра: счётчики настроек, предупреждения, каналы VK и ESPN.
+// Состояние ядра: счётчики настроек, предупреждения, каналы VK и источник расписания.
 // private — имена и подписи своих каналов пользователя: buildReport заменит их везде,
 // в том числе в текстах ошибок, на «свой канал N».
-export function coreDiagnostics({ settings, poller, espn, now = Date.now() }) {
+export function coreDiagnostics({ settings, poller, sport, source, now = Date.now() }) {
   const s = settings.get();
   const own = s.channels.filter((c) => !c.builtIn);
   return {
@@ -57,7 +57,9 @@ export function coreDiagnostics({ settings, poller, espn, now = Date.now() }) {
     },
     warnings: [...settings.warnings],
     vk: poller.snapshot(),
-    espn: espn.health(),
+    // источник расписания: name — подпись в отчёте, health — [{ name, okAt, errorAt, error }]
+    source: { name: sport.sourceName, health: sport.health(source) },
+    texts: sport.texts,
     private: own.flatMap((c, i) => [[`свой канал ${i + 1}`, c.screenName], [`свой канал ${i + 1}`, c.label]]),
   };
 }
@@ -65,7 +67,7 @@ export function coreDiagnostics({ settings, poller, espn, now = Date.now() }) {
 // app — { name, version, packaged, electron, chrome, node, os }; core — coreDiagnostics();
 // paths — [[подпись, путь], …] для sanitize
 export function buildReport({ app, core }, { paths = [] } = {}) {
-  // шапка — без замены имён своих каналов: подпись «Теннис» не должна задеть название приложения
+  // шапка — без замены имён своих каналов: подпись своего канала не должна задеть название приложения
   const head = [
     `${app.name} — диагностический отчёт`,
     `Создан: ${at(core.now)} (время везде UTC)`,
@@ -75,20 +77,20 @@ export function buildReport({ app, core }, { paths = [] } = {}) {
   ];
   const lines = [];
   const add = (...l) => lines.push(...l);
-  const { settings: c } = core;
+  const { settings: c, texts } = core;
   add(
     '',
     'Настройки (только счётчики):',
     `  каналов: ${c.channels}, включено: ${c.enabled}, своих: ${c.own}`,
-    `  разрядов: ${c.leagues}; избранных игроков: ${c.favorites}; отмеченных матчей: ${c.favoriteMatches}; своих написаний: ${c.ownAliases}`,
+    `  ${texts.leagues}: ${c.leagues}; ${texts.favorites}: ${c.favorites}; отмеченных матчей: ${c.favoriteMatches}; своих написаний: ${c.ownAliases}`,
   );
   add('', core.warnings.length ? 'Предупреждения:' : 'Предупреждения: нет');
   for (const w of core.warnings) add(`  - ${short(w)}`);
 
-  add('', 'ESPN:');
-  if (!core.espn.length) add('  запросов ещё не было');
-  for (const e of core.espn) {
-    add(`  ${e.tour}: последний успех ${at(e.okAt)}; последняя ошибка ${e.errorAt ? `${at(e.errorAt)} — ${short(e.error)}` : 'нет'}`);
+  add('', `${core.source.name}:`);
+  if (!core.source.health.length) add('  запросов ещё не было');
+  for (const e of core.source.health) {
+    add(`  ${e.name}: последний успех ${at(e.okAt)}; последняя ошибка ${e.errorAt ? `${at(e.errorAt)} — ${short(e.error)}` : 'нет'}`);
   }
 
   const vk = core.vk;

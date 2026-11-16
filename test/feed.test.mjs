@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 import { test } from 'node:test';
 import { createFeed } from '../src/core/feed.mjs';
 import { resolve } from '../src/core/settings.mjs';
+import tennis from '../src/sports/tennis/index.mjs';
 import { ANDREEVA, SHNAIDER, board, comp, event, single } from './helpers/espn-data.mjs';
 
 const pause = (ms = 5) => new Promise((r) => setTimeout(r, ms));
@@ -22,7 +23,7 @@ function setup({ dayMs = 1e9, retryMs = 1e9 } = {}) {
       })] });
     },
   };
-  const feed = createFeed({ settings, poller, espn, version: 'v', dayMs, retryMs });
+  const feed = createFeed({ settings, poller, sport: tennis, source: espn, version: 'v', dayMs, retryMs });
   const log = [];
   const sub = () => feed.subscribe({ date: '20260920', tz: 'UTC' }, (event, json) => log.push([event, JSON.parse(json)]));
   return { state, poller, settings, feed, log, sub, names: () => log.map(([e]) => e) };

@@ -2,8 +2,11 @@
 // Имена на странице — как в ESPN. Русские написания (players.json) нужны только чтобы узнавать
 // игроков в заголовках эфиров VK.
 import { readFile } from 'node:fs/promises';
+import { ymdIn } from '../../core/dates.mjs';
+import { expect, isObject } from '../../core/shape.mjs';
 import { createNamer, matchStreams } from './match.mjs';
-import { expect, isObject } from './shape.mjs';
+
+export { ymdIn };
 
 const PLAYERS = JSON.parse(await readFile(new URL('./players.json', import.meta.url), 'utf8')); // id ESPN → [имя, фамилия]
 // Справочник уровней турниров по сезонам (tournaments.json, правится вручную раз в год):
@@ -46,14 +49,6 @@ function roundName(text) {
   m = /^Qualifying (?:Round )?(\d)/i.exec(s);
   if (m) return `Квалификация, ${m[1]}-й круг`;
   return s;
-}
-
-const fmts = new Map();
-// день (ГГГГММДД), на который момент t приходится в часовом поясе tz
-export function ymdIn(t, tz) {
-  let f = fmts.get(tz);
-  if (!f) fmts.set(tz, (f = new Intl.DateTimeFormat('en-CA', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' })));
-  return f.format(t).replaceAll('-', '');
 }
 
 function player(a) {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { createNamer, latinize, matchStreams, nameScore, norm, parsePair, parseTeams } from '../src/core/match.mjs';
+import { createNamer, latinize, matchStreams, nameScore, norm, parsePair, parseTeams } from '../src/sports/tennis/match.mjs';
 
 // Заголовки — настоящие, с каналов в ноябре 2026
 test('parseTeams: игроки в любой части заголовка, между «|» или « / »', () => {

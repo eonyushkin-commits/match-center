@@ -3,13 +3,13 @@
 // («после предыдущего матча»), поэтому начало ловим по самому матчу: пока он ждёт начала,
 // проверяем раз в минуту. Проверка назначается на время начала по расписанию, но не реже
 // раза в idleMs: расписание могут поменять.
-import { buildDay, toursOf, ymdIn } from './day.mjs';
+import { ymdIn } from './dates.mjs';
 
 const LATE = 10 * 60e3;
 const WAIT = 60e3; // матч должен был начаться, но ещё не идёт
 const OVERDUE = 6 * 3600e3; // дольше не ждём: матч перенесли
 
-export function watchFavorites({ poller, settings, espn, onEvent, now = () => Date.now(), idleMs = 10 * 60e3, log = console }) {
+export function watchFavorites({ poller, settings, sport, source, onEvent, now = () => Date.now(), idleMs = 10 * 60e3, log = console }) {
   const seen = new Set();
   const waiting = new Set(); // матчи, которые при нас ещё не начались: их начало — новость
   let checking = null;
@@ -27,7 +27,7 @@ export function watchFavorites({ poller, settings, espn, onEvent, now = () => Da
     const dates = new Set([ymdIn(t, tz), ymdIn(t + idleMs, tz)]);
     const snapshot = poller.snapshot();
     for (const date of dates) {
-      const day = buildDay({ data: await espn.day(date, toursOf(s.leagues)), date, tz, settings: s, snapshot, now: t });
+      const day = sport.buildDay({ data: await source.day(date, sport.dayQuery(s, tz)), date, tz, settings: s, snapshot, now: t });
       for (const lg of day.leagues) {
         for (const m of lg.matches) {
           if (!m.favorite || m.cancelled) continue;

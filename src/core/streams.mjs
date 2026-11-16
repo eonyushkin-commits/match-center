@@ -1,6 +1,7 @@
 // Фоновый опрос каналов VK. Каждый канал читается параллельно и независимо: сначала первым
 // способом из readers (API), при ошибке — следующим (страница). У каждого канала свой статус,
-// а при сбое остаются его последние эфиры.
+// а при сбое остаются его последние эфиры. parseTitle — разбор заголовка эфира вида спорта,
+// чьи каналы опрашиваются: способы чтения общие, а участников в заголовке каждый вид ищет по-своему.
 import { EventEmitter } from 'node:events';
 
 // пауза запасного чтения после неудач подряд: 2, 4, 8, дальше по 10 минут
@@ -16,7 +17,7 @@ function withTimeout(promise, ms, message) {
 const firstLine = (s) => String(s).split('\n')[0];
 const hhmm = (t) => new Date(t).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
-export function createStreamPoller({ channels, intervalMs, readers, timeoutMs = 45e3, now = () => Date.now(), log = console }) {
+export function createStreamPoller({ channels, intervalMs, readers, parseTitle, timeoutMs = 45e3, now = () => Date.now(), log = console }) {
   const events = new EventEmitter();
   const byChannel = new Map(); // screenName → { streams, ok, via, error, checkedAt, okAt }
   // Запасные способы тяжёлые (скрытое окно со страницей канала): читают по одному каналу за раз,
@@ -37,7 +38,7 @@ export function createStreamPoller({ channels, intervalMs, readers, timeoutMs = 
     const errors = [];
     const attempt = async (reader) => {
       try {
-        return { streams: await withTimeout(reader.read(ch), timeoutMs, `нет ответа за ${timeoutMs / 1000} с`), via: reader.name };
+        return { streams: await withTimeout(reader.read(ch, parseTitle), timeoutMs, `нет ответа за ${timeoutMs / 1000} с`), via: reader.name };
       } catch (e) {
         errors.push(`${reader.name}: ${firstLine(e.message)}`);
         return null;

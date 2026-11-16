@@ -1,6 +1,6 @@
 # Объединение «Матч-центр Теннис» и «Матч-центр» (футбол) в одно приложение
 
-Составлен: 16.11.2026. Статус: этап 0 выполнен 16.11.2026, следующий — этап 1.
+Составлен: 16.11.2026. Статус: этапы 0 и 1 выполнены 16.11.2026, следующий — этап 2.
 Исходники: `../../match-center-tennis` (1.0.9, основа) и `../../match-center-english-football` (2.4.0).
 
 ## 1. Цель и границы
@@ -57,15 +57,22 @@ src/electron/        без изменений по составу
 
 ```js
 export default {
-  id: 'tennis', label: 'Теннис',
+  id: 'tennis', label: 'Теннис', sourceName: 'ESPN',
   defaults,                       // каналы, турниры/разряды, написания
   imageHosts: ['https://a.espncdn.com'],
-  createSource({ fetchImpl, nodeFetch }),   // → { day(date, { tz, settings }), refresh(), health() }
+  texts: { leagues: 'разрядов', favorites: 'избранных игроков' },   // слова для отчёта
+  createSource({ fetchImpl, nodeFetch }),   // → { day(date, query), refresh(), health() }
+  dayQuery(settings, tz),         // что спрашивать у источника: у тенниса — туры, у футбола — пояс
   buildDay({ data, date, tz, settings, snapshot, now }),
+  health(source),                 // → [{ name, okAt, errorAt, error }] — для отчёта
   parseTitle(title),              // → { teams, doubles } | null — для vk-items
   leagueCatalog: null,            // у футбола — список турниров FotMob для добавления по номеру
 };
 ```
+
+Так сделано на этапе 1 (кроме `leagueCatalog` — он появится с футболом). Источник остаётся
+«сырым» (`createEspn`), а `dayQuery` и `health` приводят его к общему виду: так тесты
+источника не пришлось менять. Список видов — `src/sports/index.mjs`, первый — по умолчанию.
 
 Общая форма матча, на которую опираются лента, уведомления и фильтры страницы:
 `id, utcTime, timeKnown, started, finished, cancelled, liveTime, reason, favorite, remind,
@@ -131,9 +138,17 @@ API: `GET /api/events?sport=…&date=…&tz=…`, `GET|PUT /api/settings?sport=�
 - Вынести кэш с объединением запросов и `stale` из `espn.mjs` в `core/cache.mjs`.
 - `app.mjs`, `feed.mjs`, `watch.mjs`, `server.mjs`, `diagnostics.mjs`, `vk-items.mjs` получают
   описание вида спорта вместо `espn` и прямых импортов `day.mjs`/`match.mjs`.
-- `toursOf(settings.leagues)` уходит внутрь `source.day(date, { tz, settings })`.
+- `toursOf(settings.leagues)` уходит в `sport.dayQuery(settings, tz)`.
 - Готово, когда: существующие тесты проходят с правкой только путей импорта; в `src/core`
   нет слов `espn`, `tennis`, `players.json`.
+- **Выполнен 16.11.2026.** `npm test` 136/136, `npm run smoke` 12/12. Отступление от критерия:
+  в тестах, кроме путей, менялись аргументы создания объектов (`espn` → `sport`, `source`;
+  `parsePair` третьим аргументом `toItems` и вторым — `reader.read`); проверяемые утверждения
+  не менялись. Отсутствие слов вида спорта в `src/core` теперь проверяет `test/sport.test.mjs`.
+  Разбор заголовка эфира передаётся от опроса каналов в способ чтения, поэтому способы чтения
+  (`vk-api.mjs`, `page-reader.mjs`) остаются общими для всех видов — это нужно для двух
+  опросов на этапе 3. Не сделано: тексты ошибок `settings.mjs` про «разряд» и «игроков»
+  остались в ядре до этапа 2.
 
 ### Этап 2. Настройки версии 2
 - Разделить настройки на общие и `sports.<id>`; `resolve`/`applyPatch` работают с разделом.

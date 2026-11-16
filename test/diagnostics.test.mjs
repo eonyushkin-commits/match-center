@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { buildReport, coreDiagnostics, sanitize } from '../src/core/diagnostics.mjs';
-import { createEspn } from '../src/core/espn.mjs';
+import { createEspn } from '../src/sports/tennis/source.mjs';
 import { resolve } from '../src/core/settings.mjs';
+import tennis from '../src/sports/tennis/index.mjs';
 import { createStreamPoller } from '../src/core/streams.mjs';
 import { popoverHtml } from '../src/web/view.mjs';
 
@@ -52,7 +53,7 @@ function core({ user = {}, warnings = [], readers, espnFetch } = {}) {
   const settings = { get: () => s, warnings };
   const poller = createStreamPoller({ channels: () => s.channels.filter((c) => c.enabled), intervalMs: () => 1e9, readers, log: quiet });
   const espn = createEspn(espnFetch);
-  return { settings, poller, espn };
+  return { settings, poller, sport: tennis, source: espn };
 }
 
 test('отчёт: версия, ОС, счётчики настроек, ESPN по турам и каналы; свои каналы и имена игроков не попадают', async () => {
@@ -70,8 +71,8 @@ test('отчёт: версия, ОС, счётчики настроек, ESPN п
   const deps = core({ user, warnings: ['Файл настроек повреждён, копия: C:\\Users\\Ivan Petrov\\AppData\\Roaming\\tennis-center\\settings.broken-1.json'], readers, espnFetch });
   await deps.poller.refresh();
   deps.poller.stop();
-  await deps.espn.day('20261113', ['atp']);
-  await deps.espn.day('20261113', ['wta']).catch(() => {});
+  await deps.source.day('20261113', ['atp']);
+  await deps.source.day('20261113', ['wta']).catch(() => {});
 
   const report = buildReport({
     app: APP,
@@ -129,7 +130,7 @@ test('ESPN: время успеха меняется только настоящ
 test('отчёт: свой канал заменяется только целым словом — название приложения и встроенные каналы целы', () => {
   const s = resolve({ channels: [{ screenName: 'tennis', label: 'Теннис' }] });
   const poller = createStreamPoller({ channels: () => s.channels, intervalMs: () => 1e9, readers: [], log: quiet });
-  const report = buildReport({ app: APP, core: coreDiagnostics({ settings: { get: () => s, warnings: [] }, poller, espn: createEspn() }) });
+  const report = buildReport({ app: APP, core: coreDiagnostics({ settings: { get: () => s, warnings: [] }, poller, sport: tennis, source: createEspn() }) });
   assert.match(report, /^Матч-центр Теннис — диагностический отчёт/);
   assert.match(report, /ждёт tennisprimesport:/);
   assert.match(report, /ждёт свой канал 1:/);

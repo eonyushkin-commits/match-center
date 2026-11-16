@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { test } from 'node:test';
 import { resolve } from '../src/core/settings.mjs';
+import tennis from '../src/sports/tennis/index.mjs';
 import { watchFavorites } from '../src/core/watch.mjs';
 import { ANDREEVA, SHNAIDER, board, comp, event, single } from './helpers/espn-data.mjs';
 
@@ -19,7 +20,7 @@ function setup(user = { favorites: [{ id: 8017, name: 'Diana Shnaider' }] }) {
   let now = KICKOFF - 60 * MIN;
   const events = [];
   const w = watchFavorites({
-    poller, settings: { get: () => resolve(user), on() {} }, espn: { day: async () => data() },
+    poller, settings: { get: () => resolve(user), on() {} }, sport: tennis, source: { day: async () => data() },
     onEvent: (e) => events.push(e.kind), now: () => now, log: {},
   });
   return { events, match, at: async (t) => { now = t; return w.check(); }, stop: w.stop };

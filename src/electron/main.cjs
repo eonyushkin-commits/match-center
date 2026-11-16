@@ -88,7 +88,7 @@ async function start() {
   mc = await createMatchCenter({
     dataDir: app.getPath('userData'),
     fetchImpl: net.fetch, // VK — сетевой стек Chromium: системный прокси и сертификаты как в браузере
-    espnFetch: (...args) => globalThis.fetch(...args), // ESPN — встроенный fetch Node.js (см. app.mjs)
+    nodeFetch: (...args) => globalThis.fetch(...args), // встроенный fetch Node.js — для источников, которым он нужен (см. app.mjs)
     pageReader,
     version: app.getVersion(),
   });

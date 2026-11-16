@@ -7,6 +7,7 @@ import { after, before, test } from 'node:test';
 import { createFeed } from '../src/core/feed.mjs';
 import { createHandler, startServer } from '../src/core/server.mjs';
 import { openSettings } from '../src/core/settings.mjs';
+import tennis from '../src/sports/tennis/index.mjs';
 import { ANDREEVA, SHNAIDER, board, comp, event, single } from './helpers/espn-data.mjs';
 
 let srv;
@@ -24,8 +25,8 @@ before(async () => {
   const settings = await openSettings(await mkdtemp(path.join(os.tmpdir(), 'mc-server-')));
   const poller = Object.assign(new EventEmitter(), { snapshot: () => snapshot, retry() {} });
   const espn = { day: async () => data, refresh() {} };
-  const feed = createFeed({ settings, poller, espn, version: 'test' });
-  const handler = createHandler({ settings, poller, espn, feed });
+  const feed = createFeed({ settings, poller, sport: tennis, source: espn, version: 'test' });
+  const handler = createHandler({ settings, poller, source: espn, feed, imageHosts: tennis.imageHosts });
   ({ server: srv, url: base } = await startServer(handler));
 });
 after(() => srv.close());

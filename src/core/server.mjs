@@ -9,10 +9,11 @@ const FILES = ['index.html', 'app.js', 'dom.mjs', 'filter.mjs', 'format.mjs', 's
 const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8' };
 const STATIC = Object.fromEntries(FILES.map((file) => [`/${file}`, [file, TYPES[file.split('.').pop()]]]));
 STATIC['/'] = STATIC['/index.html'];
-// В интерфейсе разрешены флаги ESPN; встраивание чужих страниц запрещено.
-const CSP = [
+// Картинки — только свои и с адресов источников расписания (imageHosts вида спорта);
+// встраивание чужих страниц запрещено.
+const csp = (imageHosts) => [
   "default-src 'self'",
-  "img-src 'self' data: https://a.espncdn.com",
+  ["img-src 'self' data:", ...imageHosts].join(' '),
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self'",
   "connect-src 'self'",
@@ -57,7 +58,8 @@ function validTimeZone(tz) {
   }
 }
 
-export function createHandler({ settings, poller, espn, feed }) {
+export function createHandler({ settings, poller, source, feed, imageHosts = [] }) {
+  const CSP = csp(imageHosts);
   const withLeagues = (s) => ({ ...s, knownLeagues: defaults.knownLeagues });
 
   // Лента (Server-Sent Events): расписание дня date и состояние каналов — сразу и при каждом изменении. Подписка живёт, пока открыто соединение.
@@ -76,7 +78,7 @@ export function createHandler({ settings, poller, espn, feed }) {
     'POST /api/refresh': () => {
       // по кнопке: расписание и каналы перечитываются сразу (каналы — без пауз запасного чтения);
       // когда каналы прочитаны, лента присылает странице новое расписание
-      espn.refresh();
+      source.refresh();
       poller.retry();
       return { ok: true };
     },
@@ -91,8 +93,8 @@ export function createHandler({ settings, poller, espn, feed }) {
       if (route) return send(res, 200, JSON.stringify(await route(u, req)), 'application/json; charset=utf-8');
       const file = req.method === 'GET' ? STATIC[u.pathname] : null;
       if (file) {
-        const csp = file[1].startsWith('text/html') ? { 'Content-Security-Policy': CSP } : {};
-        return send(res, 200, await readFile(new URL(file[0], WEB)), file[1], csp);
+        const extra = file[1].startsWith('text/html') ? { 'Content-Security-Policy': CSP } : {};
+        return send(res, 200, await readFile(new URL(file[0], WEB)), file[1], extra);
       }
       throw new HttpError(404, 'Не найдено');
     } catch (e) {
