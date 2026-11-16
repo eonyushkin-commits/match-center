@@ -1,13 +1,12 @@
 // Разметка: данные → HTML-строка. Без DOM и без общего состояния — всё нужное приходит аргументами.
+// Каркас общий; строку участника, шапку турнира и тексты даёт вид спорта (sports/<вид>.mjs).
 import { STATUS, audience, esc, hhmm, isLive, stamp } from './format.mjs';
 
-// Шапка раздела: «Сейчас в эфире» или турнир с разрядом
-const levelHtml = (lg) => (lg.level ? ` <span class="level">${esc(lg.level)}</span>` : '');
-
-export function sectionHeadHtml(s) {
+// Шапка раздела: «Сейчас в эфире» или турнир — как его показывает вид спорта
+export function sectionHeadHtml(s, sport) {
   return s.live
     ? `Сейчас в эфире<span class="count">${s.rows.length}</span>`
-    : `${esc(s.lg.name)}${levelHtml(s.lg)} <small>${esc(s.lg.country)}</small><span class="count">${s.rows.length}</span>`;
+    : `${sport.leagueHeadHtml(s.lg)}<span class="count">${s.rows.length}</span>`;
 }
 
 // у канала бывает несколько эфиров на матч (перезапуск) — нумеруем: «Sportcast», «Sportcast 2»
@@ -16,33 +15,17 @@ function streamLabels(streams) {
   return streams.map((s) => ((seen[s.channel] = (seen[s.channel] || 0) + 1) > 1 ? `${s.channel} ${seen[s.channel]}` : s.channel));
 }
 
-// счёт по сетам: геймы и, если был тай-брейк, очки в нём мелко сверху; выигранный сет выделен
-const setsHtml = (t) => `<span class="sets">${t.sets.map((s) =>
-  `<span class="set${s.won ? ' won' : ''}">${esc(s.games)}${s.tiebreak != null ? `<sup>${esc(s.tiebreak)}</sup>` : ''}</span>`).join('')}</span>`;
-
-// Строка матча. view: { favIds — Set игроков в избранном, hidden(m) — прятать ли счёт }.
+// Строка матча. view: { sport — вид спорта страницы, favIds — Set участников в избранном,
+// hidden(m) — прятать ли счёт }.
 export function rowHtml({ key, m, lg, showLeague }, view) {
+  const { sport } = view;
   const live = isLive(m);
-  const when = esc(m.cancelled ? (m.reason || 'Отмена') : live ? (m.liveTime || 'LIVE') : m.finished ? (m.reason || 'Оконч.') : m.timeKnown ? hhmm(m.utcTime) : '—');
-  const showScore = m.started || m.finished;
+  const when = esc(sport.whenText(m, live, hhmm(m.utcTime)));
   const hidden = view.hidden(m);
-  // номер посева — перед именем; место под него есть у обоих игроков, чтобы имена стояли ровно
-  const seeded = !!(m.home.seed || m.away.seed);
-  const team = (t) => {
-    const fav = t.id != null && view.favIds.has(t.id);
-    const score = hidden
-      ? `<button type="button" class="score masked" data-reveal="${m.id}" title="Показать счёт">?</button>`
-      : setsHtml(t);
-    const flags = t.players.filter((p) => p.flag).map((p) => `<img loading="lazy" src="${esc(p.flag)}" alt="">`).join('');
-    // ★ — у игрока одиночного разряда: пара в избранном, если в нём хотя бы один из двоих
-    const star = t.id != null ? `<button type="button" class="star${fav ? ' on' : ''}" data-fav="${t.id}" data-name="${esc(t.name)}" aria-pressed="${fav}"
-        title="${fav ? 'Убрать из избранного' : 'В избранное — уведомлю о начале каждого матча игрока'}">★</button>` : '';
-    return `<div class="team${!hidden && m.finished && t.winner ? ' win' : ''}">
-      <span class="flags">${flags}</span>
-      ${seeded ? `<small class="seed"${t.seed ? ' title="Номер посева"' : ''}>${esc(t.seed)}</small>` : ''}<span class="name">${esc(t.name)}</span>${!hidden && t.serving ? '<span class="serve" title="Подаёт"></span>' : ''}
-      ${star}
-      ${showScore ? score : ''}</div>`;
-  };
+  const mask = `<button type="button" class="score masked" data-reveal="${m.id}" title="Показать счёт">?</button>`;
+  const team = (t, other) => sport.teamHtml(t, other, m, {
+    fav: t.id != null && view.favIds.has(t.id), hidden, showScore: m.started || m.finished, mask,
+  });
 
   const labels = streamLabels(m.streams);
   let chips = m.streams.map((s, i) => {
@@ -58,18 +41,18 @@ export function rowHtml({ key, m, lg, showLeague }, view) {
   const bell = !m.started && !m.cancelled && m.timeKnown
     ? `<button type="button" class="bell${m.remind ? ' on' : ''}" data-remind aria-pressed="${!!m.remind}"
         title="${m.remind ? 'Не напоминать' : 'Уведомить о начале матча'}">🔔</button>` : '';
-  const meta = [m.round, m.court].filter(Boolean).map(esc).join(' · ');
-  // турнир, а под ним раунд и корт — отдельными строками над игроками: справа от счёта они
+  const meta = sport.metaOf(m).map(esc).join(' · ');
+  // турнир, а под ним раунд и корт — отдельными строками над участниками: справа от счёта они
   // сдвигали бы счёт у каждого матча по-своему
-  return `${showLeague ? `<div class="lg-tag">${esc(lg.name)} · ${lg.level ? `${esc(lg.level)} · ` : ''}${esc(lg.country)}</div>` : ''}${meta ? `<div class="lg-tag meta">${meta}</div>` : ''}<div class="when${live ? ' live' : ''}">${when}${bell}</div>
-    <div class="teams">${team(m.home)}${team(m.away)}</div>
+  return `${showLeague ? `<div class="lg-tag">${esc(sport.leagueTag(lg))}</div>` : ''}${meta ? `<div class="lg-tag meta">${meta}</div>` : ''}<div class="when${live ? ' live' : ''}">${when}${bell}</div>
+    <div class="teams">${team(m.home, m.away)}${team(m.away, m.home)}</div>
     <div class="side"></div>
     ${chips ? `<div class="streams">${chips}</div>` : ''}`;
 }
 
-export function emptyHtml(filtered) {
+export function emptyHtml(filtered, sport) {
   if (filtered) return '<b>Нет матчей по выбранным фильтрам</b><button type="button" class="btn" data-action="reset-filters">Сбросить фильтры</button>';
-  return '<b>В этот день матчей нет</b>Мужские и женские разряды выбираются в настройках.';
+  return `<b>В этот день матчей нет</b>${esc(sport.emptyHint)}`;
 }
 
 // ---------- обновление приложения: «Скачать» → «Установить» ----------
@@ -97,14 +80,15 @@ export function updateHtml(u) {
     <span class="actions"><button type="button" class="btn" data-action="update-download">Повторить</button>${hide}</span>`;
 }
 
-// Полосы над списком: обновление, ошибки, недоступные источники → [[класс, html], …]
-export function notices({ error, day, status, saveError, update: u, updateDismissed }, now = Date.now()) {
+// Полосы над списком: обновление, ошибки, недоступные источники → [[класс, html], …].
+// sourceName — как называется источник расписания открытого вида спорта
+export function notices({ error, day, status, saveError, update: u, updateDismissed, sourceName = 'Источник расписания' }, now = Date.now()) {
   const out = [];
-  // когда ESPN ответил последний раз: «от 14:58», без времени — «полученное ранее»
+  // когда источник ответил последний раз: «от 14:58», без времени — «полученное ранее»
   const since = day?.fetchedAt ? ` от ${stamp(day.fetchedAt, now)}` : ', полученное ранее';
   if (error && day) out.push(['bad', `<b>Не удалось обновить расписание:</b> ${esc(error)}. Показано расписание${since}.`]);
   if (day?.stale?.format) out.push(['bad', `<b>${esc(day.stale.message)}.</b> Показано расписание${since}.`]);
-  else if (day?.stale) out.push(['', `<b>ESPN сейчас недоступен</b> — показано расписание${since}.`]);
+  else if (day?.stale) out.push(['', `<b>${esc(sourceName)} сейчас недоступен</b> — показано расписание${since}.`]);
   for (const w of status?.warnings || []) out.push(['bad', esc(w)]);
   const vk = status?.vk;
   if (vk?.ready && vk.channels.length && vk.channels.every((c) => c.ok === false))
@@ -115,13 +99,21 @@ export function notices({ error, day, status, saveError, update: u, updateDismis
   return out;
 }
 
-// Подвал: версия, свежесть счёта и подсказка по клавишам. fetchedAt — когда ESPN последний раз
-// ответил на этот день (не когда перерисовали страницу); при сбое — прежнее время с пометкой
-export function footHtml({ version, day }, now = Date.now()) {
+// Подвал: версия, свежесть счёта и подсказка по клавишам. fetchedAt — когда источник последний
+// раз ответил на этот день (не когда перерисовали страницу); при сбое — прежнее время с пометкой.
+// sports — сколько видов спорта в переключателе: при нескольких — подсказка про клавиши 1, 2…
+export function footHtml({ version, day, sourceName = '', sports = 1 }, now = Date.now()) {
   const fresh = day?.fetchedAt
-    ? ` · <span class="${day.stale ? 'stale' : ''}" title="Когда ESPN последний раз прислал расписание и счёт этого дня">счёт ESPN от ${stamp(day.fetchedAt, now)}${day.stale ? ' (не обновляется)' : ''}</span>`
+    ? ` · <span class="${day.stale ? 'stale' : ''}" title="Когда ${esc(sourceName)} последний раз прислал расписание и счёт этого дня">счёт ${esc(sourceName)} от ${stamp(day.fetchedAt, now)}${day.stale ? ' (не обновляется)' : ''}</span>`
     : '';
-  return `Матч-центр ${esc(version)}${fresh} · <kbd>←</kbd> <kbd>→</kbd> дни · <kbd>/</kbd> поиск · <kbd>R</kbd> обновить`;
+  const keys = sports > 1 ? ` · ${Array.from({ length: sports }, (_, i) => `<kbd>${i + 1}</kbd>`).join(' ')} вид спорта` : '';
+  return `Матч-центр ${esc(version)}${fresh} · <kbd>←</kbd> <kbd>→</kbd> дни · <kbd>/</kbd> поиск · <kbd>R</kbd> обновить${keys}`;
+}
+
+// Переключатель вида спорта в шапке. sports — [{ id, label }], current — открытый вид
+export function sportTabsHtml(sports, current) {
+  if (!sports || sports.length < 2) return '';
+  return sports.map((s, i) => `<button type="button" role="tab" data-sport="${esc(s.id)}" class="${s.id === current ? 'on' : ''}" aria-selected="${s.id === current}" title="${esc(s.label)} (${i + 1})">${esc(s.label)}</button>`).join('');
 }
 
 // ---------- панель каналов ----------

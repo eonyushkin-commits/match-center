@@ -69,6 +69,7 @@ test('/api/settings: вместе с настройками — список р�
 test('/api/settings?sport=…: настройки вида спорта; неизвестный вид — 400', async () => {
   const s = await (await fetch(`${base}/api/settings?sport=tennis`)).json();
   assert.deepEqual([s.ui.sport, s.knownLeagues.length], ['tennis', 4]);
+  assert.deepEqual([s.sport, s.sports], ['tennis', [{ id: 'tennis', label: 'Теннис' }]], 'странице — чьи это настройки и какие виды есть');
   assert.equal((await fetch(`${base}/api/settings?sport=curling`)).status, 400);
   const put = (query, body) => fetch(`${base}/api/settings${query}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   assert.equal((await put('?sport=curling', { tray: false })).status, 400);
@@ -116,6 +117,8 @@ test('страница отдаётся с CSP, лишние пути — 404', 
   }
   assert.equal((await fetch(`${base}/../package.json`)).status, 404);
   assert.equal((await fetch(`${base}/src/core/settings.mjs`)).status, 404);
+  assert.equal((await fetch(`${base}/sports/../../core/settings.mjs`)).status, 404);
+  assert.equal((await fetch(`${base}/sports/`)).status, 404);
 });
 
 test('отдаются все модули, которые импортирует страница', async () => {
@@ -123,7 +126,10 @@ test('отдаются все модули, которые импортируе�
   const files = (await readdir(web)).filter((f) => /\.m?js$/.test(f));
   const wanted = new Set(['app.js']);
   for (const f of files)
-    for (const [, dep] of (await readFile(new URL(f, web), 'utf8')).matchAll(/from '\.\/([\w-]+\.mjs)'/g)) wanted.add(dep);
+    for (const [, dep] of (await readFile(new URL(f, web), 'utf8')).matchAll(/from '\.\/((?:sports\/)?[\w-]+\.mjs)'/g)) wanted.add(dep);
+  // модули видов спорта и то, что они импортируют друг у друга
+  for (const f of await readdir(new URL('sports/', web))) wanted.add(`sports/${f}`);
+  assert.ok(wanted.has('sports/index.mjs') && wanted.has('sports/tennis.mjs'));
   for (const f of wanted) {
     const r = await fetch(`${base}/${f}`);
     assert.equal(r.status, 200, f);

@@ -44,8 +44,13 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .top { position: sticky; top: 0; z-index: 10; background: var(--bg); padding-top: max(12px, env(safe-area-inset-top)); }
 .bar { display: flex; align-items: center; gap: 8px; }
 .brand { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-.brand b { display: block; font-size: 16px; line-height: 1.1; }
-.brand small { color: var(--muted); font-size: 12px; }
+.brand b { font-size: 16px; line-height: 1.1; white-space: nowrap; }
+/* переключатель вида спорта */
+.sports { display: flex; gap: 2px; padding: 2px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+.sports:empty { display: none; }
+.sports button { height: 28px; padding: 0 12px; border: 0; border-radius: 999px; background: none; color: var(--muted); font-size: 13px; font-weight: 600; white-space: nowrap; }
+.sports button:hover { color: var(--text); }
+.sports button.on { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
 .icon-btn, .status { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 34px;
   border: 1px solid var(--line); background: var(--surface); border-radius: 10px; box-shadow: var(--shadow); }
 .icon-btn { width: 34px; padding: 0; }
@@ -96,6 +101,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .league { margin-top: 14px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); }
 .lhead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); font-weight: 600; }
 .lhead small { color: var(--muted); font-weight: 400; }
+.lhead img { width: 20px; height: 20px; object-fit: contain; }
 .lhead .level { padding: 1px 7px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 600; white-space: nowrap; }
 .lhead .count { margin-left: auto; color: var(--faint); font-weight: 400; font-size: 12px; }
 .league.live { border-color: color-mix(in srgb, var(--live) 45%, var(--line)); }
@@ -197,7 +203,7 @@ textarea.field { height: auto; padding: 8px 10px; width: 100%; resize: vertical;
 
 /* ---------- узкий экран ---------- */
 @media (max-width: 560px) {
-  .brand small, .status #status-text { display: none; }
+  .brand b, .status #status-text { display: none; }
   .match { grid-template-columns: 48px 1fr; padding: 10px 12px; }
   .side { display: none; }
   .streams { grid-column: 1 / 3; }

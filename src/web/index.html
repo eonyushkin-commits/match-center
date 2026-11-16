@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<title>Матч-центр | Теннис</title>
+<title>Матч-центр</title>
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,7 +12,8 @@
   <header class="top">
     <div class="bar">
       <div class="brand">
-        <div><b>Матч-центр</b><small>Теннис</small></div>
+        <b>Матч-центр</b>
+        <div class="sports" id="sports" role="tablist" aria-label="Вид спорта"></div>
       </div>
       <button class="status" id="status" type="button" aria-haspopup="dialog" aria-expanded="false">
         <span class="dot" aria-hidden="true"></span><span id="status-text">VK</span>
@@ -38,7 +39,7 @@
       <button class="chip" type="button" id="spoilers" title="Скрыть счёт — чтобы смотреть записи, не зная результата">Без спойлеров</button>
       <label class="search">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/></svg>
-        <input id="q" type="search" placeholder="Игрок или турнир" aria-label="Поиск" autocomplete="off">
+        <input id="q" type="search" placeholder="Поиск" aria-label="Поиск" autocomplete="off">
       </label>
     </div>
   </header>

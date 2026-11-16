@@ -6,7 +6,7 @@ export const scoresHidden = (m, { hideScores, revealed }) => !!hideScores && !re
 
 // ★ и 🔔 прямо в данных дня — чтобы не ждать ответа сервера после клика
 export function markFavorites(day, settings) {
-  const players = new Set(settings.favorites.map((f) => f.id));
+  const players = new Set(settings.favorites.map((f) => f.id)); // игроки или команды — по виду спорта
   const matches = new Set(settings.favoriteMatches.map((f) => f.id));
   for (const lg of day?.leagues || [])
     for (const m of lg.matches) {
@@ -16,11 +16,12 @@ export function markFavorites(day, settings) {
 }
 
 // Разделы списка: «Сейчас в эфире» (только сегодня) и турниры.
-// Поиск — по турниру и по игрокам: фамилия в паре, полное имя, русское написание из словаря.
+// Поиск — по турниру и по участникам: название стороны, а у теннисной — ещё фамилия в паре,
+// полное имя и русское написание из словаря (players есть не у каждого вида спорта).
 // byTime — матчи идут по времени начала, а не турнир за турниром в порядке из настроек.
 export function sections({ day, isToday, filters: f, q, byTime }) {
   q = q.trim().toLowerCase();
-  const who = (m) => [m.home, m.away].flatMap((t) => [t.name, ...t.players.flatMap((p) => [p.name, p.ru?.name])]).filter(Boolean).join(' ').toLowerCase();
+  const who = (m) => [m.home, m.away].flatMap((t) => [t.name, ...(t.players || []).flatMap((p) => [p.name, p.ru?.name])]).filter(Boolean).join(' ').toLowerCase();
   const hit = (m, lg) => (!f.streams || m.streams.length) && (!f.live || isLive(m)) && (!f.favorites || m.favorite)
     && (!q || `${lg.name} ${lg.level || ''} ${lg.country}`.toLowerCase().includes(q) || who(m).includes(q));
   const out = [];
@@ -42,7 +43,7 @@ export function sections({ day, isToday, filters: f, q, byTime }) {
 
   // Матчи идут по времени начала; начинающиеся одновременно стоят блоком своего турнира,
   // блоки одного времени — в порядке из настроек. Соседние блоки одного турнира — один раздел.
-  // Матчи без назначенного времени (ESPN даёт им условную дату) — в конце, как и внутри турнира.
+  // Матчи без назначенного времени (источник даёт им условную дату) — в конце, как и внутри турнира.
   const slots = leagues.flatMap((s, order) => s.rows.map((r) => ({ r, lg: s.lg, order, at: Date.parse(r.m.utcTime), tbd: !r.m.timeKnown })));
   slots.sort((a, b) => a.tbd - b.tbd || a.at - b.at || a.order - b.order);
   for (const { r, lg } of slots) {

@@ -61,10 +61,10 @@ test('stamp: сегодня — только время, другой день �
 test('подвал и полоса сбоя показывают время последнего ответа ESPN', () => {
   const now = new Date(2026, 10, 14, 15, 0).getTime();
   const at = new Date(2026, 10, 14, 14, 58).getTime();
-  assert.match(footHtml({ version: '1.0.7', day: { fetchedAt: at, stale: null } }, now), /Матч-центр 1\.0\.7 · <span class="" [^>]*>счёт ESPN от 14:58<\/span>/);
-  assert.match(footHtml({ version: '1.0.7', day: { fetchedAt: at, stale: { message: 'x' } } }, now), /class="stale"[^>]*>счёт ESPN от 14:58 \(не обновляется\)/);
-  assert.doesNotMatch(footHtml({ version: '1.0.7', day: null }, now), /ESPN/);
-  assert.match(notices({ day: { fetchedAt: at, stale: { message: 'ESPN ответил 503' } } }, now)[0][1], /ESPN сейчас недоступен<\/b> — показано расписание от 14:58\./);
+  assert.match(footHtml({ version: '1.0.7', day: { fetchedAt: at, stale: null }, sourceName: 'ESPN' }, now), /Матч-центр 1\.0\.7 · <span class="" [^>]*>счёт ESPN от 14:58<\/span>/);
+  assert.match(footHtml({ version: '1.0.7', day: { fetchedAt: at, stale: { message: 'x' } }, sourceName: 'ESPN' }, now), /class="stale"[^>]*>счёт ESPN от 14:58 \(не обновляется\)/);
+  assert.doesNotMatch(footHtml({ version: '1.0.7', day: null, sourceName: 'ESPN' }, now), /ESPN/);
+  assert.match(notices({ day: { fetchedAt: at, stale: { message: 'ESPN ответил 503' } }, sourceName: 'ESPN' }, now)[0][1], /ESPN сейчас недоступен<\/b> — показано расписание от 14:58\./);
   assert.match(notices({ error: 'нет связи', day: { fetchedAt: at } }, now)[0][1], /нет связи\. Показано расписание от 14:58\./);
   assert.match(notices({ day: { stale: { message: 'x' } } }, now)[0][1], /показано расписание, полученное ранее\./);
 });

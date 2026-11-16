@@ -5,14 +5,17 @@ import { reconcile, setHtml } from './dom.mjs';
 import { markFavorites as mark, scoresHidden, sections as buildSections } from './filter.mjs';
 import { addDays, dateStrip, embedUrl, esc, inDateRange, matchTitle, parseYmd, ymd } from './format.mjs';
 import { openSettingsDialog } from './settings-ui.mjs';
-import { emptyHtml, footHtml, notices, popoverHtml, rowHtml, sectionHeadHtml, statusBadge, updateKey } from './view.mjs';
+import { sportViews } from './sports/index.mjs';
+import { emptyHtml, footHtml, notices, popoverHtml, rowHtml, sectionHeadHtml, sportTabsHtml, statusBadge, updateKey } from './view.mjs';
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
 const state = {
-  settings: null, // настройки с сервера: тема, фильтры, избранное живут там, а не в браузере
+  // Настройки открытого вида спорта с сервера: тема, фильтры, избранное живут там, а не в браузере.
+  // settings.sport — чей это вид, settings.sports — все виды для переключателя
+  settings: null,
   status: null,
   day: null,
   error: null,
@@ -26,6 +29,11 @@ const state = {
   updateDismissed: null, // «версия:шаг» скрытой крестиком полосы обновления — до следующего шага или перезапуска
 };
 const matchIdOf = (rowKey) => Number(rowKey.split(':')[1]);
+// Открытый вид спорта: его номер для запросов к серверу и его разметка
+const sportId = () => state.settings?.sport;
+const sportView = () => sportViews[sportId()];
+// адрес API с видом спорта: всё, что страница спрашивает и сохраняет, относится к открытому виду
+const api = (path, params = {}) => `${path}?${new URLSearchParams({ ...(sportId() ? { sport: sportId() } : {}), ...params })}`;
 
 // режим без спойлеров: счёт скрыт, пока его не попросят показать
 const isHidden = (m) => scoresHidden(m, { hideScores: state.settings?.ui.hideScores, revealed: state.revealed });
@@ -50,8 +58,7 @@ let feed = null; // EventSource текущей подписки
 let arrival = null; // { promise, resolve }: выполнится, когда придёт расписание (или ошибка) текущей подписки
 function subscribe() {
   feed?.close();
-  const q = new URLSearchParams({ date: state.date, tz });
-  const es = (feed = new EventSource(`/api/events?${q}`));
+  const es = (feed = new EventSource(api('/api/events', { date: state.date, tz })));
   $('#refresh').classList.add('spin');
 
   const mine = Promise.withResolvers();
@@ -90,7 +97,7 @@ function subscribe() {
 function refreshNow() {
   $('#refresh').classList.add('spin');
   if (!feed || feed.readyState === EventSource.CLOSED) subscribe();
-  request('POST', '/api/refresh').catch((e) => {
+  request('POST', api('/api/refresh')).catch((e) => {
     $('#refresh').classList.remove('spin');
     state.error = e.message;
     render();
@@ -132,7 +139,7 @@ function toggleFavorite(id, name) {
   saveNow({ favorites: state.settings.favorites });
 }
 
-// 🔔 у матча: уведомить, когда матч начнётся, даже если игроки не в избранном
+// 🔔 у матча: уведомить, когда матч начнётся, даже если участники не в избранном
 function toggleRemind(m) {
   const list = state.settings.favoriteMatches;
   state.settings.favoriteMatches = list.some((f) => f.id === m.id)
@@ -146,7 +153,7 @@ function toggleRemind(m) {
 const markFavorites = () => mark(state.day, state.settings);
 
 function saveNow(patch) {
-  request('PUT', '/api/settings', { body: patch }).then(() => { state.saveError = null; }, (e) => {
+  request('PUT', api('/api/settings'), { body: patch }).then(() => { state.saveError = null; }, (e) => {
     state.saveError = e.message;
     renderNotices();
   });
@@ -208,11 +215,11 @@ function renderStatus() {
   $('#status-text').textContent = text;
   $('#status').title = vk?.ready ? 'Каналы VK: нажмите, чтобы увидеть подробности' : 'Каналы VK читаются…';
   if (!$('#status-pop').hidden) renderPopover();
-  if (state.status?.version) $('#foot').innerHTML = footHtml({ version: state.status.version, day: state.day });
+  if (state.status?.version) $('#foot').innerHTML = footHtml({ version: state.status.version, day: state.day, sourceName: sportView()?.sourceName, sports: state.settings?.sports?.length });
 }
 
 function renderNotices() {
-  $('#notices').innerHTML = notices(state).map(([cls, html]) => `<div class="notice ${cls}">${html}</div>`).join('');
+  $('#notices').innerHTML = notices({ ...state, sourceName: sportView()?.sourceName }).map(([cls, html]) => `<div class="notice ${cls}">${html}</div>`).join('');
 }
 
 function renderList() {
@@ -226,7 +233,7 @@ function renderList() {
   const secs = sections();
   if (!secs.length) {
     const f = state.settings.ui.filters;
-    reconcile(list, [{ key: 'empty', cls: 'empty', html: emptyHtml(!!(state.q || f.streams || f.live || f.favorites)) }]);
+    reconcile(list, [{ key: 'empty', cls: 'empty', html: emptyHtml(!!(state.q || f.streams || f.live || f.favorites), sportView()) }]);
     return;
   }
   reconcile(list, secs.map((s) => ({
@@ -238,11 +245,11 @@ function renderList() {
       return n;
     },
   })));
-  const view = { favIds: favoriteIds(), hidden: isHidden };
+  const view = { sport: sportView(), favIds: favoriteIds(), hidden: isHidden };
   const nodes = new Map([...list.children].map((n) => [n.dataset.key, n]));
   for (const s of secs) {
     const node = nodes.get(s.key);
-    setHtml(node.firstElementChild, sectionHeadHtml(s));
+    setHtml(node.firstElementChild, sectionHeadHtml(s, view.sport));
     const items = [];
     for (const r of s.rows) {
       items.push({ key: r.key, cls: `match${r.m.favorite ? ' fav' : ''}`, html: rowHtml(r, view) });
@@ -302,9 +309,10 @@ function openPlayer(rowKey, url) {
   window.mc.openPlayer({ src: source.href, title: `${matchTitle(m)} · ${s.channel}` });
 }
 
-// Клик по уведомлению: день матча, строка матча и плеер, если трансляция уже идёт
-async function openMatchFromNotification(date, id) {
-  await setDate(date);
+// Клик по уведомлению: вид спорта и день матча, строка матча и плеер, если трансляция уже идёт
+async function openMatchFromNotification(sport, date, id) {
+  if (sport && sport !== sportId()) await setSport(sport, date);
+  else await setDate(date);
   const m = findMatch(id);
   if (!m) return;
   const rowKey = document.querySelector(`[data-key="live:${id}"]`) ? `live:${id}` : `m:${id}`;
@@ -315,16 +323,30 @@ async function openMatchFromNotification(date, id) {
   row?.classList.add('flash');
   setTimeout(() => row?.classList.remove('flash'), 1700);
 }
-window.mc?.onOpenMatch(({ date, id }) => openMatchFromNotification(date, id));
+window.mc?.onOpenMatch(({ sport, date, id }) => openMatchFromNotification(sport, date, id));
 
 // ---------- настройки ----------
+// Названия турниров, добавленных по номеру (у видов спорта, где так можно): спрашиваем заранее,
+// чтобы диалог открывался сразу. Источник не ответил — будет «Турнир N», а запрос повторится
+// при следующем открытии.
+const leagueNames = {}; // вид → { номер: название }
+function loadLeagueNames() {
+  const id = sportId();
+  if (!sportView()?.settings.leagueAdd || leagueNames[id]) return;
+  request('GET', api('/api/leagues')).then((names) => { leagueNames[id] = names; }, () => {});
+}
+
 function openSettings() {
   if (!state.settings) return;
   togglePopover(false);
+  loadLeagueNames();
   openSettingsDialog($('#settings'), {
     settings: state.settings,
+    sport: sportView(),
+    label: state.settings.sports?.find((s) => s.id === sportId())?.label,
+    leagueNames: leagueNames[sportId()] || {},
     save: async (patch) => {
-      state.settings = await request('PUT', '/api/settings', { body: patch });
+      state.settings = await request('PUT', api('/api/settings'), { body: patch });
       render(); // расписание с новыми настройками пришлёт лента
     },
   });
@@ -341,12 +363,57 @@ function setDate(d) {
   return subscribe();
 }
 
+// Вид спорта: переключатель в шапке, название окна, подсказка в поиске
+function renderSport() {
+  const sports = state.settings?.sports || [];
+  $('#sports').innerHTML = sportTabsHtml(sports, sportId());
+  const label = sports.find((s) => s.id === sportId())?.label;
+  document.title = label ? `Матч-центр | ${label}` : 'Матч-центр';
+  $('#q').placeholder = sportView()?.searchPlaceholder || 'Поиск';
+}
+
+// Переключение вида спорта: сервер запоминает открытый вид (ui.sport) — с этого момента
+// опрашиваются каналы VK нового вида — и отдаёт его настройки; лента открывается заново.
+// Выбранный день сохраняется (date — день, на который перейти заодно).
+let switching = null;
+function setSport(id, date = state.date) {
+  if (!state.settings || !sportViews[id] || id === sportId()) return setDate(date);
+  switching = (switching || Promise.resolve()).catch(() => {}).then(async () => {
+    unsubscribe();
+    try {
+      state.settings = await request('PUT', `/api/settings?${new URLSearchParams({ sport: id })}`, { body: { ui: { ...uiPending, sport: id } } });
+    } catch (e) {
+      state.saveError = e.message;
+      renderNotices();
+      if (!document.hidden) subscribe();
+      return;
+    }
+    clearTimeout(uiTimer); // несохранённые правки интерфейса ушли вместе с переключением
+    uiPending = {};
+    Object.assign(state, { day: null, status: null, error: null, saveError: null, q: '', date });
+    state.revealed.clear();
+    $('#q').value = '';
+    togglePopover(false);
+    renderSport();
+    renderDates();
+    render();
+    scrollTo({ top: 0 });
+    loadLeagueNames();
+    if (!document.hidden) await subscribe();
+  });
+  return switching;
+}
+
 function setFilter(name, value) {
   state.settings.ui.filters[name] = value;
   saveUi({ filters: state.settings.ui.filters });
   render();
 }
 
+$('#sports').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-sport]');
+  if (b) setSport(b.dataset.sport);
+});
 $('#dates').addEventListener('click', (e) => {
   const b = e.target.closest('[data-date]');
   if (b) setDate(b.dataset.date);
@@ -445,6 +512,9 @@ document.addEventListener('keydown', (e) => {
     refreshNow();
   } else if (e.key === ',') {
     openSettings();
+  } else if (/^[1-9]$/.test(e.key)) {
+    const sport = state.settings?.sports?.[Number(e.key) - 1]; // 1, 2… — виды спорта по порядку вкладок
+    if (sport) setSport(sport.id);
   } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
     const next = addDays(state.date, e.key === 'ArrowLeft' ? -1 : 1);
     if (inDateRange(state.today, next)) setDate(next); // за краем полосы она сдвинется на день
@@ -483,6 +553,8 @@ async function boot() {
   }
   state.error = null;
   applyTheme();
+  renderSport();
+  loadLeagueNames();
   if (!document.hidden) subscribe();
   // обновления приложения: состояние на момент загрузки страницы и дальнейшие изменения
   const onUpdate = (u) => {

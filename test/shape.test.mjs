@@ -92,7 +92,7 @@ test('ESPN недоступен после удачного ответа — п�
   t.mock.timers.tick(60e3);
   const day = await e.day('20261113', ['wta']);
   assert.deepEqual([day.events.length, day.stale.format, day.stale.message], [1, false, 'ESPN ответил 503']);
-  assert.match(notices({ day: { stale: day.stale } })[0][1], /ESPN сейчас недоступен/);
+  assert.match(notices({ day: { stale: day.stale }, sourceName: 'ESPN' })[0][1], /ESPN сейчас недоступен/);
 });
 
 test('VK: ни у одного видео нет номера и названия — ошибка формата; пустой список и обычные видео — нет', () => {

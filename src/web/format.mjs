@@ -63,12 +63,13 @@ export function parseChannel(text) {
   return /^[\w.-]{2,64}$/.test(s) ? s : null;
 }
 
-// «Игрок = вариант, вариант» по строке → { aliases } или { error } с непонятой строкой
-export function parseAliases(text) {
+// «Игрок = вариант, вариант» по строке → { aliases } или { error } с непонятой строкой.
+// who — как назвать участника в подсказке: «Игрок», «Команда»
+export function parseAliases(text, who = 'Название') {
   const aliases = {};
   for (const line of text.split('\n').map((l) => l.trim()).filter(Boolean)) {
     const [team, names] = line.split('=');
-    if (!team?.trim() || !names?.trim()) return { error: `Не понял строку «${line}»: нужно «Игрок = вариант, вариант»` };
+    if (!team?.trim() || !names?.trim()) return { error: `Не понял строку «${line}»: нужно «${who} = вариант, вариант»` };
     aliases[team.trim()] = names.split(',').map((n) => n.trim()).filter(Boolean);
   }
   return { aliases };

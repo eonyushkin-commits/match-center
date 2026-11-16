@@ -1,10 +1,12 @@
 // Локальный сервер: страница матч-центра и её API.
 import http from 'node:http';
+import { readdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 
 const WEB = new URL('../web/', import.meta.url);
-// Отдаём только перечисленные файлы страницы
-const FILES = ['index.html', 'app.js', 'dom.mjs', 'filter.mjs', 'format.mjs', 'settings-ui.mjs', 'view.mjs', 'styles.css'];
+// Отдаём только перечисленные файлы страницы и модули видов спорта из её папки sports/
+const FILES = ['index.html', 'app.js', 'dom.mjs', 'filter.mjs', 'format.mjs', 'settings-ui.mjs', 'view.mjs', 'styles.css',
+  ...readdirSync(new URL('sports/', WEB)).filter((name) => /^[\w-]+\.mjs$/.test(name)).map((name) => `sports/${name}`)];
 const TYPES = { html: 'text/html; charset=utf-8', js: 'text/javascript; charset=utf-8', mjs: 'text/javascript; charset=utf-8', css: 'text/css; charset=utf-8' };
 const STATIC = Object.fromEntries(FILES.map((file) => [`/${file}`, [file, TYPES[file.split('.').pop()]]]));
 STATIC['/'] = STATIC['/index.html'];
@@ -69,7 +71,10 @@ export function createHandler({ settings, units }) {
     if (!unit) throw new HttpError(400, `sport: неизвестный вид спорта «${id}»`);
     return unit;
   };
-  const withLeagues = (s, sport) => ({ ...s, knownLeagues: sport.defaults.knownLeagues });
+  // Странице вместе с настройками вида: чьи они (sport), его известные турниры и все виды
+  // спорта для переключателя
+  const sportList = units.map((u) => ({ id: u.sport.id, label: u.sport.label }));
+  const withLeagues = (s, sport) => ({ ...s, sport: sport.id, sports: sportList, knownLeagues: sport.defaults.knownLeagues });
 
   // Лента (Server-Sent Events): расписание дня date и состояние каналов — сразу и при каждом изменении. Подписка живёт, пока открыто соединение.
   function events(u, res) {

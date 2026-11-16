@@ -162,6 +162,52 @@ app.whenReady().then(async () => {
     assert.ok(win.webContents.getURL().startsWith('http://127.0.0.1:'));
   });
 
+  await step('переключатель: футбол — расписание FotMob и эфиры футбольных каналов, свои настройки; обратно — теннис', async () => {
+    assert.deepEqual(await page(`[...document.querySelectorAll('#sports [data-sport]')].map((b) => b.textContent + (b.classList.contains('on') ? '*' : ''))`), ['Теннис*', 'Футбол']);
+    assert.equal(await page('document.title'), 'Матч-центр | Теннис');
+    assert.ok(!fake.asked.includes('www.fotmob.com') && !fake.asked.includes('vk:englishaccent'), 'пока открыт теннис, футбол не спрашиваем');
+    await click('#sports [data-sport="football"]');
+    await on(`document.querySelectorAll('[data-key^="m:"]').length === 3 && !!document.querySelector('[data-key="m:201"]')`, 'три футбольных матча');
+    assert.equal(await page('document.title'), 'Матч-центр | Футбол');
+    assert.equal(await page(`document.querySelector('[data-key="m:201"] .name').textContent`), 'Арсенал');
+    assert.deepEqual(await page(`[...document.querySelectorAll('[data-key="m:201"] .score')].map((n) => n.textContent)`), ['1', '0']);
+    assert.equal(await page(`document.querySelector('[data-key="m:201"] .when').textContent`), '31’');
+    assert.match(await page(`document.querySelector('[data-key="lg:47"] .lhead').textContent`), /Премьер-лига\s+Англия/);
+    assert.equal(await page(`document.querySelector('#q').placeholder`), 'Команда или турнир');
+    // каналы футбола начинают читаться только сейчас: эфир появляется сам
+    await on(`!!document.querySelector('[data-key="live:201"] .stream[data-play]')`, 'эфир футбольного матча');
+    assert.ok(fake.asked.includes('vk:englishaccent'));
+    assert.match(await page(`document.querySelector('#foot').textContent`), /счёт FotMob от \d\d:\d\d ·.*1 2 вид спорта/);
+    // настройки — футбольные: четыре канала, турниры, добавление по номеру с названием из справочника
+    await click('#open-settings');
+    assert.deepEqual(await page(`[...document.querySelectorAll('#settings h3')].map((h) => h.textContent)`),
+      ['Каналы VK · Футбол', 'Турниры · Футбол', 'Обновление и уведомления · все виды спорта', 'Написание команд · Футбол']);
+    assert.equal(await page(`document.querySelectorAll('#settings #chan-list li').length`), 4);
+    assert.equal(await page(`document.querySelectorAll('#settings input[name="league"]').length`), 5);
+    await on(`(document.querySelector('#settings #league-id').value = 'fotmob.com/leagues/338/x', document.querySelector('#settings #league-add').click(), document.querySelectorAll('#settings input[name="league"]').length === 6)`, 'турнир добавлен по номеру');
+    await on(`[...document.querySelectorAll('#settings input[name="league"]')].at(-1).closest('label').textContent.trim() === 'Россия · ФНЛ'`, 'название турнира из справочника FotMob', 3000);
+    await page(`document.querySelector('#settings').close(), true`);
+    // звезда у команды сохраняется в футбольном разделе настроек и теннис не задевает
+    await click('[data-key="m:203"] .star');
+    await on(`document.querySelector('[data-key="m:203"]').classList.contains('fav')`, 'матч избранной команды отмечен');
+    const settingsFile = path.join(app.getPath('userData'), 'settings.json');
+    await until('избранное записано в раздел футбола', () => {
+      const saved = JSON.parse(fs.readFileSync(settingsFile, 'utf8'));
+      return saved.ui.sport === 'football' && saved.sports.football?.favorites?.[0]?.name === 'Фулхэм' && !saved.sports.tennis?.favorites;
+    });
+
+    // клавиша 1 — обратно в теннис: расписание и эфиры на месте
+    const asked = fake.asked.length;
+    win.webContents.sendInputEvent({ type: 'keyDown', keyCode: '1' });
+    win.webContents.sendInputEvent({ type: 'char', keyCode: '1' });
+    win.webContents.sendInputEvent({ type: 'keyUp', keyCode: '1' });
+    await on(`!!document.querySelector('[data-key="m:101"] .stream[data-play]')`, 'теннис с эфирами');
+    assert.equal(await page('document.title'), 'Матч-центр | Теннис');
+    assert.equal(await page(`document.querySelectorAll('[data-key^="m:2"]').length`), 0);
+    await sleep(1500);
+    assert.ok(!fake.asked.slice(asked).some((a) => a === 'vk:englishaccent' || a === 'vk:pl_forever'), 'каналы футбола после переключения больше не читаются');
+  });
+
   await step('настройки открываются сразу: пять каналов и четыре разряда', async () => {
     await click('#open-settings');
     assert.equal(await page(`document.querySelector('#settings').open`), true);
@@ -186,6 +232,7 @@ app.whenReady().then(async () => {
       assert.match(report, new RegExp(`Версия: ${app.getVersion().replaceAll('.', '\\.')} \\(запуск из исходников\\)`));
       assert.match(report, /ESPN:\n {2}atp: последний успех \d{4}-/);
       assert.match(report, /ok {3}tennisprimesport: через api/);
+      assert.match(report, /=== Футбол ===[^=]*FotMob:\n[^=]*расписание: последний успех \d{4}-[^=]*VK: круг чтения завершён [^\n]* \(опрос остановлен\)/);
       const user = require('node:os').userInfo().username;
       if (user.length > 2) assert.ok(!report.toLowerCase().includes(user.toLowerCase()), 'в отчёте нет имени пользователя');
       await page(`document.body.click(), true`);

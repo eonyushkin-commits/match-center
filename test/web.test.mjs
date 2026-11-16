@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { markFavorites, scoresHidden, sections } from '../src/web/filter.mjs';
 import { addDays, audience, embedUrl, esc, parseAliases, parseChannel, dateStrip, inDateRange } from '../src/web/format.mjs';
+import tennisView from '../src/web/sports/tennis.mjs';
 import { notices, rowHtml, sectionHeadHtml, statusBadge, updateHtml } from '../src/web/view.mjs';
 
 const stream = (o) => ({ status: 'started', channel: 'Sportcast', title: 'Синнер — Алькарас', url: 'https://vkvideo.ru/video-1_2', embed: 'https://vkvideo.ru/video_ext.php?oid=-1&id=2&hash=h', ...o });
@@ -14,7 +15,7 @@ const match = (o = {}) => ({
   started: false, finished: false, cancelled: false,
   home: side(10, 'Jannik Sinner'), away: side(20, 'Carlos Alcaraz'), streams: [], ...o,
 });
-const view = (o = {}) => ({ favIds: new Set(), hidden: () => false, ...o });
+const view = (o = {}) => ({ sport: tennisView, favIds: new Set(), hidden: () => false, ...o });
 const row = (m) => rowHtml({ key: `m:${m.id}`, m, lg: { name: 'ATP Finals', country: 'Мужчины · одиночный разряд' } }, view());
 
 // ---------- format ----------
@@ -140,10 +141,10 @@ test('sections: по времени начала — матчи по време�
 
 // ---------- view: строка матча ----------
 test('sectionHeadHtml: турнир с разрядом и числом матчей', () => {
-  assert.equal(sectionHeadHtml({ lg: { name: 'WTA <Finals>', country: 'Женщины · парный разряд' }, rows: [1, 2] }),
+  assert.equal(sectionHeadHtml({ lg: { name: 'WTA <Finals>', country: 'Женщины · парный разряд' }, rows: [1, 2] }, tennisView),
     'WTA &lt;Finals&gt; <small>Женщины · парный разряд</small><span class="count">2</span>');
-  assert.match(sectionHeadHtml({ live: true, rows: [1] }), /^Сейчас в эфире/);
-  assert.equal(sectionHeadHtml({ lg: { name: 'Brisbane', level: 'WTA 500', country: 'Женщины · одиночный разряд' }, rows: [1] }),
+  assert.match(sectionHeadHtml({ live: true, rows: [1] }, tennisView), /^Сейчас в эфире/);
+  assert.equal(sectionHeadHtml({ lg: { name: 'Brisbane', level: 'WTA 500', country: 'Женщины · одиночный разряд' }, rows: [1] }, tennisView),
     'Brisbane <span class="level">WTA 500</span> <small>Женщины · одиночный разряд</small><span class="count">1</span>', 'уровень турнира — в шапке');
 });
 
