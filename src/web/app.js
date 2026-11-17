@@ -186,7 +186,8 @@ function renderDates() {
     const dt = parseYmd(d);
     const label = i === 0 ? 'Сегодня' : i === -1 ? 'Вчера' : i === 1 ? 'Завтра' : dt.toLocaleDateString('ru-RU', { weekday: 'short' });
     const on = d === state.date;
-    html.push(`<button type="button" data-date="${d}" class="${on ? 'on' : ''}" aria-pressed="${on}">${label}<small>${dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</small></button>`);
+    const today = i === 0;
+    html.push(`<button type="button" data-date="${d}" class="${[on && 'on', today && 'today'].filter(Boolean).join(' ')}" aria-pressed="${on}"${today ? ' aria-current="date"' : ''}>${label}<small>${dt.toLocaleDateString('ru-RU', { day: 'numeric', month: 'short' })}</small></button>`);
   }
   html.push(arrow(addDays(state.date, 1), '›', 'Следующий день (→)'));
   $('#dates').innerHTML = html.join('');

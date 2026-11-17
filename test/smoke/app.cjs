@@ -86,6 +86,18 @@ app.whenReady().then(async () => {
     assert.match(await page(`document.querySelector('#foot').textContent`), /счёт ESPN от \d\d:\d\d ·/);
   });
 
+  await step('полоса дат: сегодня отмечено независимо от выбранного дня', async () => {
+    assert.equal(await page(`document.querySelectorAll('#dates [aria-current="date"]').length`), 1);
+    assert.equal(await page(`document.querySelector('#dates .today').getAttribute('aria-pressed')`), 'true');
+    await click('#dates button[data-date]:not(.shift):not(.today)');
+    assert.equal(await page(`document.querySelector('#dates .today').getAttribute('aria-current')`), 'date');
+    assert.equal(await page(`document.querySelector('#dates .today').getAttribute('aria-pressed')`), 'false');
+    assert.equal(await page(`!!document.querySelector('#dates .on:not(.today)')`), true);
+    await click('#dates .today');
+    await on(`!!document.querySelector('[data-key="m:101"]')`, 'возврат к сегодняшним матчам');
+    assert.equal(await page(`document.querySelector('#dates .today').getAttribute('aria-pressed')`), 'true');
+  });
+
   // каналы перечитываются раз в минуту, так что за несколько секунд новый эфир покажет только кнопка
   const streamsOf103 = (n) => on(`document.querySelectorAll('[data-key="m:103"] .stream[data-play]').length === ${n}`, `эфиров у матча 103: ${n}`, 6000);
 
