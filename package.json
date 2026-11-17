@@ -1,7 +1,7 @@
 {
   "name": "match-center",
   "productName": "Матч-центр",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Матч-центр: расписание и счёт тенниса (ESPN) и футбола (FotMob), трансляции из VK Видео",
   "main": "src/electron/main.cjs",
   "type": "commonjs",
