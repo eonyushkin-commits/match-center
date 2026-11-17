@@ -73,6 +73,18 @@ test('футбол: шапка турнира с логотипом; в блок
   assert.doesNotMatch(sectionHeadHtml({ lg: { id: '"><img onerror=x>', name: 'x', country: '' }, rows: [] }, footballView), /<img onerror/);
 });
 
+test('футбол: стадии в шапке стилем уровня тенниса, смешанные туры и блок эфиров', () => {
+  const league = { ...lg, stages: ['11-й тур', '12-й тур', '<img onerror=x>'] };
+  const html = sectionHeadHtml({ lg: league, rows: [1] }, footballView);
+  assert.match(html, /<span class="level">11-й тур<\/span> <span class="level">12-й тур<\/span>/);
+  assert.match(html, /<span class="level">&lt;img onerror=x&gt;<\/span>/);
+  const m = match({ round: '11-й тур' });
+  const render = (lg, showLeague = false) => rowHtml({ key: 'm:7', m, lg, showLeague }, view());
+  assert.match(render(league), /<div class="lg-tag meta">11-й тур<\/div>/);
+  assert.doesNotMatch(render({ ...lg, stages: ['11-й тур'] }), /lg-tag meta/, 'один тур не повторяется у каждой строки');
+  assert.match(render({ ...lg, stages: ['11-й тур'] }, true), /<div class="lg-tag meta">11-й тур<\/div>/, 'в блоке эфиров тур относится к матчу');
+});
+
 test('тексты по виду спорта: пустой день, источник в полосе сбоя и в подвале', () => {
   assert.match(emptyHtml(false, footballView), /Турниры выбираются в настройках/);
   assert.match(emptyHtml(false, tennisView), /разряды выбираются в настройках/);

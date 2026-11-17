@@ -35,7 +35,7 @@ function create(now = Date.now()) {
 
   // FotMob: расписание дня, русские названия и справочник турниров
   const club = (id, score) => ({ id, name: TEAMS[id][0], score });
-  const fm = (id, home, away, status) => ({ id, home, away, status: { utcTime: new Date(kickoff[id]).toISOString(), ...status } });
+  const fm = (id, home, away, status) => ({ id, home, away, tournamentStage: '11', status: { utcTime: new Date(kickoff[id]).toISOString(), ...status } });
   const fotmob = {
     '/api/data/matches': { leagues: [{ id: 47, name: 'Premier League', ccode: 'ENG', matches: [
       fm(201, club(1, 1), club(2, 0), { started: true, finished: false, liveTime: { short: '31’' } }),

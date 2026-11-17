@@ -172,7 +172,8 @@ app.whenReady().then(async () => {
     assert.equal(await page(`document.querySelector('[data-key="m:201"] .name').textContent`), 'Арсенал');
     assert.deepEqual(await page(`[...document.querySelectorAll('[data-key="m:201"] .score')].map((n) => n.textContent)`), ['1', '0']);
     assert.equal(await page(`document.querySelector('[data-key="m:201"] .when').textContent`), '31’');
-    assert.match(await page(`document.querySelector('[data-key="lg:47"] .lhead').textContent`), /Премьер-лига\s+Англия/);
+    assert.match(await page(`document.querySelector('[data-key="lg:47"] .lhead').textContent`), /Премьер-лига\s+11-й тур\s+Англия/);
+    assert.equal(await page(`document.querySelector('[data-key="lg:47"] .lhead .level').textContent`), '11-й тур');
     assert.equal(await page(`document.querySelector('#q').placeholder`), 'Команда или турнир');
     // каналы футбола начинают читаться только сейчас: эфир появляется сам
     await on(`!!document.querySelector('[data-key="live:201"] .stream[data-play]')`, 'эфир футбольного матча');

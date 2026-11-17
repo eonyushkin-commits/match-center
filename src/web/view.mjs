@@ -41,7 +41,7 @@ export function rowHtml({ key, m, lg, showLeague }, view) {
   const bell = !m.started && !m.cancelled && m.timeKnown
     ? `<button type="button" class="bell${m.remind ? ' on' : ''}" data-remind aria-pressed="${!!m.remind}"
         title="${m.remind ? 'Не напоминать' : 'Уведомить о начале матча'}">🔔</button>` : '';
-  const meta = sport.metaOf(m).map(esc).join(' · ');
+  const meta = sport.metaOf(m, lg, showLeague).map(esc).join(' · ');
   // турнир, а под ним раунд и корт — отдельными строками над участниками: справа от счёта они
   // сдвигали бы счёт у каждого матча по-своему
   return `${showLeague ? `<div class="lg-tag">${esc(sport.leagueTag(lg))}</div>` : ''}${meta ? `<div class="lg-tag meta">${meta}</div>` : ''}<div class="when${live ? ' live' : ''}">${when}${bell}</div>

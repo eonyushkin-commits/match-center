@@ -11,11 +11,12 @@ export default {
   searchPlaceholder: 'Команда или турнир',
   emptyHint: 'Турниры выбираются в настройках.',
 
-  // шапка раздела: логотип турнира, название и страна
-  leagueHeadHtml: (lg) => `<img loading="lazy" src="${LOGOS}/leaguelogo/${encodeURIComponent(lg.id)}.png" alt=""> ${esc(lg.name)} <small>${esc(lg.country)}</small>`,
+  // шапка раздела: логотип, название, тур/стадия тем же стилем, что уровень тенниса, страна
+  leagueHeadHtml: (lg) => `<img loading="lazy" src="${LOGOS}/leaguelogo/${encodeURIComponent(lg.id)}.png" alt=""> ${esc(lg.name)}${(lg.stages || []).map((stage) => ` <span class="level">${esc(stage)}</span>`).join('')} <small>${esc(lg.country)}</small>`,
   // подпись турнира у матча в блоке «Сейчас в эфире»
   leagueTag: (lg) => lg.name,
-  metaOf: () => [],
+  // Уточняем стадию у матча при смешанных турах и вне обычного раздела турнира.
+  metaOf: (m, lg, showLeague) => m.round && (showLeague || (lg.stages || []).length > 1) ? [m.round] : [],
   // левая колонка: статус — как его отдаёт FotMob (FT, HT, AET, Pen…) — или время начала
   whenText: (m, live, time) => (m.cancelled ? (m.reason || 'Canc.') : live ? (m.liveTime || 'LIVE') : m.finished ? (m.reason || 'FT') : time),
 

@@ -1,6 +1,7 @@
 // Расписание дня: турниры из настроек в заданном порядке, русские названия, привязанные эфиры.
 import { expect, isObject } from '../../core/shape.mjs';
 import { createNamer, matchStreams } from './match.mjs';
+import { stageLabel } from './stage.mjs';
 
 const okTeam = (t) => isObject(t) && t.id != null && typeof t.name === 'string';
 // проверяем только матчи выбранных турниров: остальные сотни матчей дня приложению не нужны
@@ -25,8 +26,9 @@ export function buildDay({ fm, ru, settings, snapshot }) {
 
   const leagues = [...parts].filter(([, list]) => list.length).map(([id, list]) => {
     const [lg] = list; // у сезонных этапов lg.id свой (напр. 938218 у Чемпионшипа), логотип — под основным
-    const matches = list.flatMap((part) => part.matches || []).map(checked).map((m) => ({
+    const matches = list.flatMap((part) => (part.matches || []).map(checked).map((m) => ({
       id: m.id,
+      round: stageLabel(m.tournamentStage, part.name),
       utcTime: m.status.utcTime,
       timeKnown: true, // время начала у FotMob назначено всегда
       home: team(m.home, ru),
@@ -40,12 +42,13 @@ export function buildDay({ fm, ru, settings, snapshot }) {
       remind: favoriteMatches.has(m.id),
       favorite: favorites.has(m.home.id) || favorites.has(m.away.id) || favoriteMatches.has(m.id),
       streams: matchStreams(m, namesOf(m.home), namesOf(m.away), snapshot.streams),
-    }));
+    })));
     if (list.length > 1) matches.sort((a, b) => Date.parse(a.utcTime) - Date.parse(b.utcTime));
     return {
       id,
       name: ru.TournamentTemplates?.[id] || ru.TournamentTemplates?.[lg.id] || lg.name,
       country: ru.CountryCodes?.[lg.ccode] || lg.ccode || '',
+      stages: [...new Set(matches.map((m) => m.round).filter(Boolean))],
       matches,
     };
   });

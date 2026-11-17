@@ -140,6 +140,23 @@ test('buildDay: турниры в порядке настроек, русски�
   assert.deepEqual([bell.favorite, bell.remind, bell.home.score], [true, true, null], 'матч отмечен колокольчиком; счёта до начала нет');
 });
 
+test('buildDay: туры чемпионата, раунды кубка и стадии плей-офф из tournamentStage', () => {
+  const fixtures = [
+    { id: 47, name: 'Premier League', stages: ['11', '12', '11'], expected: ['11-й тур', '12-й тур'] },
+    { id: 132, name: 'FA Cup', stages: ['4', 'quarterfinal', 'semi-final', 'final'], expected: ['4-й раунд', 'Четвертьфинал', 'Полуфинал', 'Финал'] },
+    { id: 42, name: 'Champions League', stages: ['Round of 16', 'league_stage', 'Unknown stage', null, {}], expected: ['1/8 финала', 'Этап лиги', 'Unknown stage'] },
+    { id: 338, name: 'First League', stages: [18, '', undefined], expected: ['18-й тур'] },
+  ];
+  for (const fixture of fixtures) {
+    const fm = { leagues: [{ ...fixture, matches: fixture.stages.map((stage, i) => ({
+      ...fmMatch(i + 1, 1, 2, '2026-11-21T15:00:00Z'), tournamentStage: stage,
+    })) }] };
+    const [league] = buildDay({ fm, ru: {}, settings: settingsOf({ leagues: [fixture.id] }), snapshot: { streams: [] } }).leagues;
+    assert.deepEqual(league.stages, fixture.expected, fixture.name);
+    assert.equal(league.matches[0].round, fixture.expected[0]);
+  }
+});
+
 test('buildDay: группы одного турнира собираются в один раздел по времени начала', () => {
   const fm = { leagues: [
     { id: 900001, primaryId: 77, name: 'World Cup Grp. A', ccode: 'INT', matches: [fmMatch(1, 1, 2, '2026-06-20T18:00:00Z')] },
