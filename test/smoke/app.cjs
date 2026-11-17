@@ -1,6 +1,6 @@
 // Проверки в настоящем приложении: главный процесс как есть, сеть подставная, профиль временный.
 // Запуск: npm run smoke (scripts/smoke.mjs передаёт --user-data-dir и --smoke-out).
-const { app, BrowserWindow, net, session, shell } = require('electron');
+const { app, BrowserWindow, nativeImage, net, session, shell } = require('electron');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -70,6 +70,19 @@ app.whenReady().then(async () => {
     assert.equal(win.isVisible(), false);
     assert.equal(await page('document.hidden'), true);
     assert.equal(subscriptions, 0);
+  });
+
+  await step('значок приложения: PNG/ICO читаются, углы прозрачные, изображение трея не пустое', async () => {
+    const png = nativeImage.createFromPath(path.join(__dirname, '../../src/assets/icon.png'));
+    const ico = nativeImage.createFromPath(path.join(__dirname, '../../src/assets/icon.ico'));
+    assert.equal(png.isEmpty(), false);
+    assert.deepEqual(png.getSize(), { width: 512, height: 512 });
+    const bitmap = png.toBitmap(); // BGRA
+    const alpha = (x, y) => bitmap[(y * 512 + x) * 4 + 3];
+    for (const [x, y] of [[0, 0], [511, 0], [0, 511], [511, 511]]) assert.equal(alpha(x, y), 0);
+    assert.ok(alpha(256, 256) >= 250, 'содержимое значка остаётся непрозрачным с допуском на обработку alpha');
+    assert.equal(ico.isEmpty(), false);
+    assert.equal(png.resize({ width: 16, height: 16 }).isEmpty(), false);
   });
 
   await step('показ окна: расписание загружено, идущий матч — в блоке «Идут сейчас»', async () => {

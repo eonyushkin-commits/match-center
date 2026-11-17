@@ -16,8 +16,8 @@ const APP_ID = 'ru.sportcenter.matchcenter';
 const NAME = 'Матч-центр';
 const PRELOAD = path.join(__dirname, 'preload.cjs');
 const PLAYER_PRELOAD = path.join(__dirname, 'preload-player.cjs');
-// Своего значка у приложения нет (решение пользователя 17.11.2026): окна, уведомления и
-// установщик берут стандартный значок Electron из exe, трей — его же (см. start).
+// Пользовательское изображение: PNG для окон/трея, многоразмерный ICO — для exe/установщика.
+const ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 const RELEASES = 'https://github.com/eonyushkin-commits/match-center/releases';
 const load = (file) => import(pathToFileURL(path.join(__dirname, '..', file)).href);
 
@@ -73,7 +73,7 @@ function openMatch(sport, date, id) {
 
 function notify({ title, body, onClick }) {
   if (!Notification.isSupported()) return;
-  const n = new Notification({ title, body });
+  const n = new Notification({ title, body, icon: ICON });
   notifications.add(n);
   n.on('close', () => notifications.delete(n));
   n.on('click', () => {
@@ -113,6 +113,7 @@ async function start() {
     // запуск сразу в трей: без этого страница считает себя видимой и подписывается на ленту впустую
     paintWhenInitiallyHidden: !toTray,
     title: `${NAME} · v${app.getVersion()}`,
+    icon: ICON,
     backgroundColor: nativeTheme.shouldUseDarkColors ? '#0e1116' : '#f3f5f8',
     autoHideMenuBar: true,
     // Сессия VK только в памяти: вход не сохраняется между запусками.
@@ -143,6 +144,7 @@ async function start() {
       width: 800, height: 450, minWidth: 320, minHeight: 180, useContentSize: true,
       alwaysOnTop: true, backgroundColor: '#000', autoHideMenuBar: true,
       title: typeof title === 'string' ? title : 'Трансляция',
+      icon: ICON,
       // preload лишь задаёт высокое качество по умолчанию и ничего не открывает странице VK
       webPreferences: { partition: 'matchcenter', spellcheck: false, nodeIntegration: false, contextIsolation: true, sandbox: true, preload: PLAYER_PRELOAD },
     });
@@ -205,9 +207,7 @@ async function start() {
     notify({ title, body, onClick: () => openMatch(sport, date, match.id) });
   });
 
-  // значок трея — значок самого exe (у Electron это его стандартный значок); не получилось —
-  // пустая картинка: трей с меню «Выход» нужнее, чем его вид
-  trayImage = await app.getFileIcon(process.execPath, { size: 'small' }).catch(() => nativeImage.createEmpty());
+  trayImage = nativeImage.createFromPath(ICON).resize({ width: 16, height: 16, quality: 'best' });
   mc.settings.on('change', applyAppSettings);
   applyAppSettings(mc.settings.get());
 
