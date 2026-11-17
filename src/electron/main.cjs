@@ -16,8 +16,8 @@ const APP_ID = 'ru.sportcenter.matchcenter';
 const NAME = 'Матч-центр';
 const PRELOAD = path.join(__dirname, 'preload.cjs');
 const PLAYER_PRELOAD = path.join(__dirname, 'preload-player.cjs');
-const ICON = path.join(__dirname, '..', 'assets', 'icon.ico');
-const ICON_PNG = path.join(__dirname, '..', 'assets', 'icon.png');
+// Своего значка у приложения нет (решение пользователя 17.11.2026): окна, уведомления и
+// установщик берут стандартный значок Electron из exe, трей — его же (см. start).
 const RELEASES = 'https://github.com/eonyushkin-commits/match-center/releases';
 const load = (file) => import(pathToFileURL(path.join(__dirname, '..', file)).href);
 
@@ -73,7 +73,7 @@ function openMatch(sport, date, id) {
 
 function notify({ title, body, onClick }) {
   if (!Notification.isSupported()) return;
-  const n = new Notification({ title, body, icon: ICON_PNG });
+  const n = new Notification({ title, body });
   notifications.add(n);
   n.on('close', () => notifications.delete(n));
   n.on('click', () => {
@@ -106,7 +106,6 @@ async function start() {
   const s = mc.settings.get();
   const toTray = startHidden && s.tray;
   win = new BrowserWindow({
-    icon: ICON,
     ...restoreBounds(s.ui.window),
     minWidth: 380,
     minHeight: 480,
@@ -141,7 +140,6 @@ async function start() {
     // VK отказывает iframe на локальной странице. Официальный плеер как
     // самостоятельная страница воспроизводит тот же эфир без подмены запросов.
     const player = new BrowserWindow({
-      icon: ICON,
       width: 800, height: 450, minWidth: 320, minHeight: 180, useContentSize: true,
       alwaysOnTop: true, backgroundColor: '#000', autoHideMenuBar: true,
       title: typeof title === 'string' ? title : 'Трансляция',
@@ -207,7 +205,9 @@ async function start() {
     notify({ title, body, onClick: () => openMatch(sport, date, match.id) });
   });
 
-  trayImage = nativeImage.createFromPath(ICON_PNG).resize({ width: 16, height: 16 });
+  // значок трея — значок самого exe (у Electron это его стандартный значок); не получилось —
+  // пустая картинка: трей с меню «Выход» нужнее, чем его вид
+  trayImage = await app.getFileIcon(process.execPath, { size: 'small' }).catch(() => nativeImage.createEmpty());
   mc.settings.on('change', applyAppSettings);
   applyAppSettings(mc.settings.get());
 

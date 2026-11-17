@@ -338,6 +338,5 @@ npm run app
 
 Как объединялись два приложения и какие решения приняты — [docs/MERGE-PLAN.md](docs/MERGE-PLAN.md).
 
-Значок приложения хранится в `src/assets/icon.png` и `icon.ico` (16–256 px).
-Исходник — `scripts/make-icon.ps1`; пересоздание в Windows:
-`powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-icon.ps1`.
+Своего значка у приложения нет: окна, трей, уведомления и установщик показывают стандартный
+значок Electron.
