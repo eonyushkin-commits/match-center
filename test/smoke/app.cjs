@@ -182,10 +182,12 @@ app.whenReady().then(async () => {
     await click('#open-settings');
     assert.deepEqual(await page(`[...document.querySelectorAll('#settings h3')].map((h) => h.textContent)`),
       ['Каналы VK · Футбол', 'Турниры · Футбол', 'Обновление и уведомления · все виды спорта', 'Написание команд · Футбол']);
-    assert.equal(await page(`document.querySelectorAll('#settings #chan-list li').length`), 4);
-    assert.equal(await page(`document.querySelectorAll('#settings input[name="league"]').length`), 5);
-    await on(`(document.querySelector('#settings #league-id').value = 'fotmob.com/leagues/338/x', document.querySelector('#settings #league-add').click(), document.querySelectorAll('#settings input[name="league"]').length === 6)`, 'турнир добавлен по номеру');
-    await on(`[...document.querySelectorAll('#settings input[name="league"]')].at(-1).closest('label').textContent.trim() === 'Россия · ФНЛ'`, 'название турнира из справочника FotMob', 3000);
+    assert.equal(await page(`document.querySelectorAll('#settings #chan-list li').length`), 5);
+    assert.equal(await page(`document.querySelectorAll('#settings input[name="league"]').length`), 6);
+    assert.deepEqual(await page(`[...document.querySelectorAll('#settings input[name="league"]')].map((i) => i.closest('label').textContent.trim())`),
+      ['Англия · Премьер-лига', 'Англия · Чемпионшип', 'Англия · Кубок Англии', 'Англия · Кубок английской лиги', 'Англия · Суперкубок Англии', 'Россия · ФНЛ']);
+    await on(`(document.querySelector('#settings #league-id').value = 'fotmob.com/leagues/42/x', document.querySelector('#settings #league-add').click(), document.querySelectorAll('#settings input[name="league"]').length === 7)`, 'турнир добавлен по номеру');
+    await on(`[...document.querySelectorAll('#settings input[name="league"]')].at(-1).closest('label').textContent.trim() === 'Лига Чемпионов'`, 'название турнира из справочника FotMob', 3000);
     await page(`document.querySelector('#settings').close(), true`);
     // звезда у команды сохраняется в футбольном разделе настроек и теннис не задевает
     await click('[data-key="m:203"] .star');

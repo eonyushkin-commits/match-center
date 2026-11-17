@@ -47,7 +47,7 @@ function create(now = Date.now()) {
       TournamentTemplates: { 47: 'Премьер-лига' },
       CountryCodes: { ENG: 'Англия' },
     },
-    '/api/data/allLeagues': { international: [], countries: [{ ccode: 'RUS', localizedName: 'Россия', leagues: [{ id: 338, localizedName: 'ФНЛ' }] }] },
+    '/api/data/allLeagues': { international: [{ ccode: 'INT', localizedName: 'Международный', leagues: [{ id: 42, localizedName: 'Лига Чемпионов' }] }], countries: [{ ccode: 'RUS', localizedName: 'Россия', leagues: [{ id: 338, localizedName: 'ФНЛ' }] }] },
   };
 
   const sec = (ms) => Math.floor(ms / 1000);

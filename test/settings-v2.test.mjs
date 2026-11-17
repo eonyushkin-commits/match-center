@@ -150,7 +150,7 @@ test('перенос из прежнего приложения: файл уже
   const v2 = { version: 2, tray: false, sports: { tennis: { leagues: [3] }, football: { leagues: [99] } } };
   const a = await tmp();
   const fromV2 = await openSettings(a, { importFrom: { tennis: await legacy(v2) } });
-  assert.deepEqual([fromV2.get('tennis').leagues, fromV2.get('football').leagues], [[3], [47, 48, 132, 133, 247]], 'чужой раздел из того файла не берём');
+  assert.deepEqual([fromV2.get('tennis').leagues, fromV2.get('football').leagues], [[3], [47, 48, 132, 133, 247, 338]], 'чужой раздел из того файла не берём');
 
   const b = await tmp();
   await writeFile(path.join(b, 'settings.json'), JSON.stringify({ version: 2, sports: { tennis: { leagues: [4] } } }));

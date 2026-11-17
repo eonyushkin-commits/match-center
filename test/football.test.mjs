@@ -152,13 +152,13 @@ test('buildDay: группы одного турнира собираются в
 // ---------- настройки ----------
 
 test('настройки футбола: турнир — любой номер FotMob; свои тексты ошибок; номера тенниса не подходят теннису наоборот', () => {
-  assert.deepEqual(settingsOf().leagues, [47, 48, 132, 133, 247]);
+  assert.deepEqual(settingsOf().leagues, [47, 48, 132, 133, 247, 338]);
   assert.deepEqual(settingsOf({ leagues: [42, 47] }).leagues, [42, 47], 'турнир, добавленный по номеру');
   assert.deepEqual(applyPatch({}, { leagues: [42, '47', 42, -1, 'x'] }, football).leagues, [42, 47]);
-  assert.equal(applyPatch({}, { leagues: [47, 48, 132, 133, 247] }, football).leagues, undefined, 'встроенный список не хранится');
+  assert.equal(applyPatch({}, { leagues: [47, 48, 132, 133, 247, 338] }, football).leagues, undefined, 'встроенный список не хранится');
   assert.throws(() => applyPatch({}, { leagues: [] }, football), { status: 400, message: /хотя бы один турнир/ });
   assert.throws(() => applyPatch({}, { userAliases: { a: 'b' } }, football), { status: 400, message: /Написания команд/ });
-  assert.deepEqual(settingsOf().channels.map((c) => c.screenName), ['englishaccent', 'pl_forever', 'sportcast.online', 'vishli_football']);
+  assert.deepEqual(settingsOf().channels.map((c) => c.screenName), ['englishaccent', 'pl_forever', 'sportcast.online', 'vishli_football', 'liga_pari']);
   assert.deepEqual(settingsOf({ teamAliases: { 'Арсенал': ['Канониры'] } }).teamAliases['Манчестер Юнайтед'], ['МЮ', 'Ман Юнайтед']);
 });
 
@@ -245,7 +245,7 @@ test('сервер: расписание, настройки, турниры и 
   assert.equal((await fetch(`${url}/api/events?sport=curling&date=20260920`)).status, 400);
 
   const s = await (await fetch(`${url}/api/settings?sport=football`)).json();
-  assert.deepEqual([s.knownLeagues.map((l) => l.id), s.leagues, s.channels.length], [[47, 48, 132, 133, 247], [47, 48, 132, 133, 247], 4]);
+  assert.deepEqual([s.knownLeagues.map((l) => l.id), s.leagues, s.channels.length], [[47, 48, 132, 133, 247, 338], [47, 48, 132, 133, 247, 338], 5]);
   const put = await fetch(`${url}/api/settings?sport=football`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ leagues: [47, 42], favorites: [{ id: 2, name: 'МЮ' }] }) });
   assert.deepEqual((await put.json()).leagues, [47, 42]);
   assert.deepEqual([settings.get('tennis').leagues, settings.get('tennis').favorites], [[1, 2], []], 'настройки тенниса не тронуты');
@@ -294,13 +294,13 @@ test('ядро: каналы VK опрашиваются только у вид�
   net.asked.length = 0;
   await mc.settings.update({ ui: { sport: 'football' } });
   await pause(50);
-  assert.deepEqual(vkAsked(net.asked), ['englishaccent', 'pl_forever', 'sportcast.online', 'vishli_football'], 'открыли футбол — читаются его каналы, теннисные — нет');
+  assert.deepEqual(vkAsked(net.asked), ['englishaccent', 'liga_pari', 'pl_forever', 'sportcast.online', 'vishli_football'], 'открыли футбол — читаются его каналы, теннисные — нет');
 
   // эфиры каждого вида разобраны по его правилам и лежат в его опросе
   const report = buildReport({ app: { name: 'Матч-центр', version: 'test', packaged: false, electron: '1', chrome: '1', node: '1', os: 'x' }, core: mc.diagnostics() });
   assert.match(report, /=== Теннис ===\nНастройки \(только счётчики\):\n {2}каналов: 5, включено: 5, своих: 0\n {2}разрядов: 2; избранных игроков: 0;/);
   assert.match(report, /=== Теннис ===[^=]*VK: круг чтения завершён [\dT:Z-]+ \(опрос остановлен\)\n {2}ok {3}tennisprimesport: через api, эфиров 1/);
-  assert.match(report, /=== Футбол ===\nНастройки \(только счётчики\):\n {2}каналов: 4, включено: 4, своих: 0\n {2}турниров: 5; избранных команд: 0;/);
+  assert.match(report, /=== Футбол ===\nНастройки \(только счётчики\):\n {2}каналов: 5, включено: 5, своих: 0\n {2}турниров: 6; избранных команд: 0;/);
   assert.match(report, /=== Футбол ===[^=]*FotMob:\n {2}запросов ещё не было\n\nVK: круг чтения завершён [\dT:Z-]+\n {2}ok {3}englishaccent: через api, эфиров 1/);
 });
 
@@ -358,4 +358,21 @@ test('отчёт: свои каналы обоих видов спорта за�
   assert.match(report, /=== Футбол ===[^=]*сбой свой канал 2: [^\n]*\n\s+ошибка: api: HTTP 500 https:\/\/vkvideo\.ru\/@свой канал 2\/lives \(свой канал 2\)/);
   assert.doesNotMatch(report, /my_tennis_secret|my_football_secret|Ивана/);
   assert.match(report, /^Матч-центр — диагностический отчёт/, 'название приложения и заголовки видов целы');
+});
+
+test('ФНЛ: эфиры «Лиги PARI» привязываются к командам FotMob, в том числе «ФК Сочи» и «Спартак Кострома»', () => {
+  // заголовки и названия — настоящие, с канала liga_pari и из FotMob, ноябрь 2026
+  const names = { Participants: { 11: 'Енисей', 12: 'ФК Сочи', 13: 'Шинник', 14: 'Спартак Кострома', 15: 'Велес' } };
+  const at = '2026-11-08T12:00:00Z';
+  const fm = { leagues: [{ id: 338, name: 'FNL', ccode: 'RUS', matches: [
+    fmMatch(1, 11, 12, at, { started: true, finished: true }),
+    fmMatch(2, 13, 14, at, { started: true, finished: true }),
+    fmMatch(3, 15, 11, at, { started: true, finished: true }),
+  ] }] };
+  const day = buildDay({ fm, ru: names, settings: settingsOf(), snapshot: { streams: [
+    stream('«Енисей» – «Сочи» Лига PARI. 17 тур.', { url: 'a', status: 'finished' }),
+    stream('«Шинник» – «Спартак» Лига PARI. 15 тур.', { url: 'b', status: 'finished' }),
+  ] } });
+  assert.deepEqual(day.leagues[0].matches.map((m) => m.streams.map((s) => s.url)), [['a'], ['b'], []]);
+  assert.ok(settingsOf().channels.some((c) => c.screenName === 'liga_pari' && c.builtIn));
 });
