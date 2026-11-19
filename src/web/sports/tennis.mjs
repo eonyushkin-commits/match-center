@@ -31,7 +31,7 @@ export default {
     const star = t.id != null ? starHtml(t, o.fav, 'В избранное — уведомлю о начале каждого матча игрока') : '';
     return `<div class="team${!o.hidden && m.finished && t.winner ? ' win' : ''}">
       <span class="flags">${flags}</span>
-      ${seeded ? `<small class="seed"${t.seed ? ' title="Номер посева"' : ''}>${esc(t.seed)}</small>` : ''}<span class="name">${esc(t.name)}</span>${!o.hidden && t.serving ? '<span class="serve" title="Подаёт"></span>' : ''}
+      ${seeded ? `<small class="seed"${t.seed ? ' title="Номер посева"' : ''}>${esc(t.seed)}</small>` : ''}<span class="name">${esc(t.name)}</span>${!o.hidden && t.serving ? '<span class="serve" title="Подаёт" role="img" aria-label="Подаёт"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M10.6 2.1C10.1 7.2 6.3 9.6 2.3 9.5M21.6 9.2C18.6 16.6 9 9.4 6.8 15.3C5.1 19.6 9 22 12 22"/></svg></span>' : ''}
       ${star}
       ${o.showScore ? (o.hidden ? o.mask : setsHtml(t)) : ''}</div>`;
   },
