@@ -243,7 +243,8 @@ textarea.field { height: auto; padding: 8px 10px; width: 100%; resize: vertical;
 .team .flags { display: flex; gap: 3px; flex: none; }
 .team .flags img { width: 20px; height: 14px; object-fit: cover; border-radius: 2px; box-shadow: 0 0 0 1px var(--line); }
 .team .seed { color: var(--faint); font-size: 11px; flex: none; min-width: 14px; text-align: right; }
-.team .serve { width: 7px; height: 7px; border-radius: 50%; background: var(--live); flex: none; }
+.team .serve { display: inline-flex; width: 16px; height: 16px; color: var(--text); flex: none; }
+.team .serve svg { width: 100%; height: 100%; stroke-width: 1.7; }
 .team .sets { display: flex; margin-left: auto; padding-left: 8px; font-variant-numeric: tabular-nums; }
 .team .set { min-width: 26px; text-align: center; color: var(--muted); }
 .team .set sup { font-size: 11px; margin-left: 1px; line-height: 0; }
